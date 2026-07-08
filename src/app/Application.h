@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engines/TranslateTypes.h"
+
 #include <QApplication>
 #include <QList>
 #include <QRect>
@@ -16,9 +18,8 @@ class HotkeyBackend;
 class ScreenshotBackend;
 class TranslateService;
 class OcrService;
+class LibraryService;
 class CaptureOverlay;
-struct TranslateRequest;
-struct TranslateResult;
 struct ScreenImage;
 
 // Result of parsing the command line into a single deferred action.
@@ -84,6 +85,10 @@ public:
     void openSettings();
     QString translate(const QString &text);
 
+    // History/vocabulary facade, for the tray + main window (M4). Non-null once
+    // setupServices() has run; may report not-ready if the DB failed to open.
+    LibraryService *libraryService() const { return m_libraryService; }
+
 private:
     // Perform a parsed action against this (primary) instance.
     void dispatch(const CliAction &action);
@@ -115,6 +120,7 @@ private:
     // M1 selection-translation pipeline (all owned via QObject parent = this,
     // except the placement strategy which is a plain object).
     TranslateService *m_translateService = nullptr;
+    LibraryService *m_libraryService = nullptr; // history + vocabulary (M4)
     SelectionSource *m_selectionSource = nullptr;
     HotkeyBackend *m_hotkeyBackend = nullptr;
     std::unique_ptr<PopupPlacement> m_popupPlacement;
@@ -126,4 +132,10 @@ private:
     QList<CaptureOverlay *> m_overlays; // live overlays (WA_DeleteOnClose)
     QRect m_captureAnchor; // selection rect for popup placement
     bool m_captureInProgress = false;
+
+    // M4 history/vocabulary bookkeeping for the in-flight request.
+    QString m_currentTrigger; // selection|capture|input|clipboard
+    TranslateRequest m_currentRequest; // request being translated right now
+    TranslateResult m_lastGoodResult; // latest ok result (snapshot for the star)
+    bool m_historyRecorded = false; // only the first ok result is recorded
 };

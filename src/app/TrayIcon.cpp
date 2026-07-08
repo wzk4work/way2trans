@@ -1,7 +1,9 @@
 #include "TrayIcon.h"
 
 #include "Application.h"
+#include "LibraryService.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QIcon>
 #include <QMenu>
@@ -30,6 +32,22 @@ TrayIcon::TrayIcon(Application *app, QObject *parent)
 
     auto *clipboardAction = m_menu->addAction(tr("Translate Clipboard"));
     connect(clipboardAction, &QAction::triggered, m_app, &Application::triggerClipboard);
+
+    m_menu->addSeparator();
+
+    // Privacy quick switch: pause recording selection/translation history
+    // (DESIGN.md §8.2). Reflects and drives the Settings-backed flag.
+    m_pauseRecordingAction = m_menu->addAction(tr("Pause Recording"));
+    m_pauseRecordingAction->setCheckable(true);
+    if (LibraryService *library = m_app->libraryService()) {
+        m_pauseRecordingAction->setChecked(library->isRecordingPaused());
+        connect(m_pauseRecordingAction, &QAction::toggled, library, &LibraryService::setRecordingPaused);
+        // Keep the menu item in sync if the flag changes elsewhere (settings).
+        connect(library, &LibraryService::recordingPausedChanged, m_pauseRecordingAction, [this](bool paused) {
+            QSignalBlocker blocker(m_pauseRecordingAction);
+            m_pauseRecordingAction->setChecked(paused);
+        });
+    }
 
     m_menu->addSeparator();
 

@@ -87,6 +87,17 @@ PopupWindow::PopupWindow(QWidget *parent)
     titleRow->addWidget(m_langPairLabel, 0, Qt::AlignVCenter);
     titleRow->addSpacing(6);
 
+    // Vocabulary star: shown only for single-word lookups (DESIGN.md §8.3).
+    m_starButton = new QToolButton(m_container);
+    m_starButton->setObjectName(QStringLiteral("iconButton"));
+    m_starButton->setCheckable(true);
+    m_starButton->setText(QStringLiteral("☆"));
+    m_starButton->setToolTip(tr("Add to vocabulary"));
+    m_starButton->setCursor(Qt::PointingHandCursor);
+    m_starButton->hide();
+    connect(m_starButton, &QToolButton::toggled, this, &PopupWindow::onStarToggled);
+    titleRow->addWidget(m_starButton, 0, Qt::AlignVCenter);
+
     m_pinButton = new QToolButton(m_container);
     m_pinButton->setObjectName(QStringLiteral("iconButton"));
     m_pinButton->setCheckable(true);
@@ -188,6 +199,17 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
     clearCards();
     m_singleWord = looksLikeWord(request.text);
 
+    // The star is a single-word affordance; reset it to the hollow state until
+    // the app reports whether this word is already saved (setSaved).
+    m_currentWord = request.text.trimmed();
+    m_currentContext = request.text;
+    m_starButton->setVisible(m_singleWord);
+    {
+        QSignalBlocker blocker(m_starButton);
+        m_starButton->setChecked(false);
+        m_starButton->setText(QStringLiteral("☆"));
+    }
+
     // Show the read-only label or the editable box depending on the flow.
     m_sourceLabel->setVisible(!editableSource);
     m_sourceEdit->setVisible(editableSource);
@@ -216,6 +238,37 @@ void PopupWindow::applyResult(const TranslateResult &result)
         return;
     it.value()->showResult(result, m_singleWord);
     adjustSize();
+}
+
+void PopupWindow::applyPartial(const QString &engineId, const QString &delta)
+{
+    auto it = m_cards.constFind(engineId);
+    if (it == m_cards.constEnd())
+        return;
+    it.value()->appendStreamDelta(delta);
+    adjustSize();
+}
+
+void PopupWindow::setSaved(bool saved)
+{
+    if (!m_singleWord)
+        return;
+    QSignalBlocker blocker(m_starButton); // reflect state without re-triggering
+    m_starButton->setChecked(saved);
+    m_starButton->setText(saved ? QStringLiteral("★") : QStringLiteral("☆"));
+    m_starButton->setToolTip(saved ? tr("Remove from vocabulary") : tr("Add to vocabulary"));
+}
+
+void PopupWindow::onStarToggled(bool checked)
+{
+    if (m_currentWord.isEmpty())
+        return;
+    m_starButton->setText(checked ? QStringLiteral("★") : QStringLiteral("☆"));
+    m_starButton->setToolTip(checked ? tr("Remove from vocabulary") : tr("Add to vocabulary"));
+    if (checked)
+        emit saveRequested(m_currentWord, m_currentContext);
+    else
+        emit unsaveRequested(m_currentWord);
 }
 
 void PopupWindow::clearCards()

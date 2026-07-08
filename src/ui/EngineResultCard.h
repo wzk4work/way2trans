@@ -32,6 +32,10 @@ public:
     // carries an error.
     void showResult(const TranslateResult &result, bool preferDict);
 
+    // Append a streaming delta (LLM). Switches the card out of the skeleton on
+    // the first delta and grows the body as text arrives (DESIGN.md §5).
+    void appendStreamDelta(const QString &delta);
+
 signals:
     void retryRequested(const QString &engineId);
 
@@ -53,5 +57,7 @@ private:
     QToolButton *m_retryButton = nullptr;
     QVBoxLayout *m_layout = nullptr;
     bool m_pending = true; // showing the skeleton, not a real result
+    bool m_streaming = false; // accumulating streamed deltas
+    QString m_streamText; // text accumulated so far while streaming
     int m_maxBodyHeight = 260; // dictionary layouts get a taller cap
 };

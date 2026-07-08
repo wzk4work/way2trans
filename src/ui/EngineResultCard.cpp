@@ -76,6 +76,8 @@ void EngineResultCard::showPending()
     m_copyButton->hide();
     m_retryButton->hide();
     m_pending = true;
+    m_streaming = false;
+    m_streamText.clear();
     m_maxBodyHeight = 260;
     if (m_body) {
         m_body->setPlainText(tr("Translating…"));
@@ -85,9 +87,26 @@ void EngineResultCard::showPending()
     }
 }
 
+void EngineResultCard::appendStreamDelta(const QString &delta)
+{
+    // First delta: leave the skeleton and start showing real text.
+    if (!m_streaming) {
+        m_streaming = true;
+        m_pending = false;
+        m_streamText.clear();
+        m_copyButton->show();
+        m_retryButton->hide();
+        m_body->setProperty("state", QStringLiteral("ok"));
+    }
+    m_streamText += delta;
+    setBody(m_streamText);
+}
+
 void EngineResultCard::showResult(const TranslateResult &result, bool preferDict)
 {
     m_pending = false;
+    m_streaming = false;
+    m_streamText.clear();
     if (!result.ok()) {
         m_copyButton->hide();
         m_retryButton->show();

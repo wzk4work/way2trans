@@ -3,6 +3,8 @@
 #include "CaptureOverlay.h"
 #include "DBusService.h"
 #include "HotkeyBackend.h"
+#include "LangDetector.h"
+#include "LibraryService.h"
 #include "Logging.h"
 #include "MainWindow.h"
 #include "OcrService.h"
@@ -328,25 +330,69 @@ void Application::setupServices()
     // Core translation service (owns the shared QNetworkAccessManager + engines).
     m_translateService = new TranslateService(this);
 
+    // History + vocabulary storage (DESIGN.md §8). A failed open degrades to a
+    // no-op facade so the rest of the app keeps working without persistence.
+    m_libraryService = new LibraryService(this);
+
     // Result popup + placement strategy.
     m_popup = std::make_unique<PopupWindow>();
     m_popupPlacement = PlatformFactory::createPopupPlacement();
     connect(m_popup.get(), &PopupWindow::retryRequested, m_translateService, &TranslateService::retry);
     // Editing the recognised text in the OCR popup re-runs the translation.
-    connect(m_popup.get(), &PopupWindow::sourceEdited, this,
-        [this](const QString &newText) { m_translateService->translate(newText); });
+    connect(m_popup.get(), &PopupWindow::sourceEdited, this, [this](const QString &newText) {
+        m_currentTrigger = QStringLiteral("input"); // an edited re-translation
+        m_translateService->translate(newText);
+    });
+    // Vocabulary star: save/remove the current word (DESIGN.md §8.3).
+    connect(m_popup.get(), &PopupWindow::saveRequested, this, [this](const QString &word, const QString &context) {
+        if (m_libraryService)
+            m_libraryService->addToVocabulary(m_lastGoodResult, word, context);
+    });
+    connect(m_popup.get(), &PopupWindow::unsaveRequested, this, [this](const QString &word) {
+        if (!m_libraryService)
+            return;
+        // Mirror the lang derivation used when saving so the remove matches.
+        const QString lang = m_lastGoodResult.detectedSourceLang.isEmpty() ? LangDetector::detectLang(word)
+                                                                           : m_lastGoodResult.detectedSourceLang;
+        m_libraryService->removeFromVocabulary(word, lang);
+    });
     connect(m_translateService, &TranslateService::requestStarted, this,
         [this](const TranslateRequest &req, const QStringList &ids) {
+            m_currentRequest = req;
+            m_historyRecorded = false;
+            m_lastGoodResult = {};
             // The source box is editable only for the screenshot/OCR flow so the
             // user can correct a misrecognition and re-translate (DESIGN.md §3.2).
             m_popup->beginRequest(req, ids, m_captureInProgress);
         });
+    connect(m_translateService, &TranslateService::partialResult, this,
+        [this](const QString &engineId, const QString &delta) { m_popup->applyPartial(engineId, delta); });
     connect(m_translateService, &TranslateService::resultReady, this, [this](const TranslateResult &result) {
         if (result.ok())
             qCInfo(w2tApp) << "result" << result.engineId << "->" << result.translatedText.left(60);
         else
             qCWarning(w2tApp) << "result" << result.engineId << "error:" << result.error;
         m_popup->applyResult(result);
+
+        if (result.ok()) {
+            // Record history once per request, on the first successful result
+            // (DESIGN.md §8.2). Remember it as the snapshot the star will save.
+            m_lastGoodResult = result;
+            if (!m_historyRecorded) {
+                m_historyRecorded = true;
+                if (m_libraryService)
+                    m_libraryService->recordHistory(m_currentTrigger, m_currentRequest, result);
+            }
+            // Light the star if this word is already saved (DESIGN.md §8.3).
+            if (m_libraryService) {
+                const QString word = (result.dict.has_value() && !result.dict->word.isEmpty())
+                    ? result.dict->word
+                    : m_currentRequest.text.trimmed();
+                const QString lang
+                    = result.detectedSourceLang.isEmpty() ? m_currentRequest.sourceLang : result.detectedSourceLang;
+                m_popup->setSaved(m_libraryService->isSaved(word, lang));
+            }
+        }
     });
 
     // Platform selection source: PRIMARY selection -> translate.
@@ -417,6 +463,7 @@ void Application::setupServices()
             m_popup->raise();
             m_popup->activateWindow();
         }
+        m_currentTrigger = QStringLiteral("capture");
         m_translateService->translate(text);
         // The flow is done once translation is kicked off; the editable-source
         // flag stays true until the next capture so re-translation on edit works.
@@ -449,6 +496,7 @@ void Application::translateSelectionText(const QString &text)
         m_popup->raise();
         m_popup->activateWindow();
     }
+    m_currentTrigger = QStringLiteral("selection");
     m_translateService->translate(text);
 }
 

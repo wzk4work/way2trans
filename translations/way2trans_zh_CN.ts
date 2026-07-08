@@ -4,12 +4,12 @@
 <context>
     <name>Application</name>
     <message>
-        <location filename="../src/app/Application.cpp" line="377"/>
+        <location filename="../src/app/Application.cpp" line="423"/>
         <source>Translate selection</source>
         <translation>翻译选中文本</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="388"/>
+        <location filename="../src/app/Application.cpp" line="434"/>
         <source>Translate screenshot</source>
         <translation>截图翻译</translation>
     </message>
@@ -64,27 +64,27 @@
         <translation>请在设置中填写 DeepL API 密钥以使用此引擎</translation>
     </message>
     <message>
-        <location filename="../src/engines/DeepLEngine.cpp" line="117"/>
+        <location filename="../src/engines/DeepLEngine.cpp" line="116"/>
         <source>Network error: %1</source>
         <translation>网络错误：%1</translation>
     </message>
     <message>
-        <location filename="../src/engines/DeepLEngine.cpp" line="143"/>
+        <location filename="../src/engines/DeepLEngine.cpp" line="142"/>
         <source>Unexpected response (endpoint may have changed)</source>
         <translation>响应异常（接口可能已变更）</translation>
     </message>
     <message>
-        <location filename="../src/engines/DeepLEngine.cpp" line="150"/>
+        <location filename="../src/engines/DeepLEngine.cpp" line="149"/>
         <source>DeepL translation failed</source>
         <translation>DeepL 翻译失败</translation>
     </message>
     <message>
-        <location filename="../src/engines/DeepLEngine.cpp" line="156"/>
+        <location filename="../src/engines/DeepLEngine.cpp" line="155"/>
         <source>Empty response</source>
         <translation>响应为空</translation>
     </message>
     <message>
-        <location filename="../src/engines/DeepLEngine.cpp" line="165"/>
+        <location filename="../src/engines/DeepLEngine.cpp" line="164"/>
         <source>No translation returned</source>
         <translation>未返回翻译结果</translation>
     </message>
@@ -107,7 +107,7 @@
         <translation>重试</translation>
     </message>
     <message>
-        <location filename="../src/ui/EngineResultCard.cpp" line="81"/>
+        <location filename="../src/ui/EngineResultCard.cpp" line="83"/>
         <source>Translating…</source>
         <translation>翻译中…</translation>
     </message>
@@ -161,12 +161,12 @@
         <translation>请在设置中填写 LLM API 密钥以使用此引擎</translation>
     </message>
     <message>
-        <location filename="../src/engines/LlmEngine.cpp" line="159"/>
+        <location filename="../src/engines/LlmEngine.cpp" line="158"/>
         <source>Network error: %1</source>
         <translation>网络错误：%1</translation>
     </message>
     <message>
-        <location filename="../src/engines/LlmEngine.cpp" line="165"/>
+        <location filename="../src/engines/LlmEngine.cpp" line="164"/>
         <source>No translation returned</source>
         <translation>未返回翻译结果</translation>
     </message>
@@ -201,22 +201,35 @@
 <context>
     <name>PopupWindow</name>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="102"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="95"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="259"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="267"/>
+        <source>Add to vocabulary</source>
+        <translation>加入生词本</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/PopupWindow.cpp" line="113"/>
         <source>Close (Esc)</source>
         <translation>关闭 (Esc)</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="120"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="131"/>
         <source>Edit the recognised text, then press Ctrl+Enter to re-translate</source>
         <translation>编辑识别出的文本，然后按 Ctrl+Enter 重新翻译</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="121"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="132"/>
         <source>Recognised text (editable)</source>
         <translation>识别出的文本（可编辑）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="94"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="259"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="267"/>
+        <source>Remove from vocabulary</source>
+        <translation>移出生词本</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/PopupWindow.cpp" line="105"/>
         <source>Pin (keep open on focus loss)</source>
         <translation>固定（失焦时不关闭）</translation>
     </message>
@@ -295,42 +308,47 @@
 <context>
     <name>TrayIcon</name>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="76"/>
+        <location filename="../src/app/TrayIcon.cpp" line="94"/>
         <source>No selected text detected</source>
         <translation>未检测到选中文本</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="44"/>
+        <location filename="../src/app/TrayIcon.cpp" line="62"/>
         <source>Quit</source>
         <translation>退出</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="39"/>
+        <location filename="../src/app/TrayIcon.cpp" line="40"/>
+        <source>Pause Recording</source>
+        <translation>暂停记录</translation>
+    </message>
+    <message>
+        <location filename="../src/app/TrayIcon.cpp" line="57"/>
         <source>Settings...</source>
         <translation>设置…</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="83"/>
+        <location filename="../src/app/TrayIcon.cpp" line="101"/>
         <source>Screenshot translation is unavailable</source>
         <translation>截图翻译不可用</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="36"/>
+        <location filename="../src/app/TrayIcon.cpp" line="54"/>
         <source>Show Main Window</source>
         <translation>显示主窗口</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="31"/>
+        <location filename="../src/app/TrayIcon.cpp" line="33"/>
         <source>Translate Clipboard</source>
         <translation>翻译剪贴板</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="28"/>
+        <location filename="../src/app/TrayIcon.cpp" line="30"/>
         <source>Translate Screenshot</source>
         <translation>截图翻译</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="25"/>
+        <location filename="../src/app/TrayIcon.cpp" line="27"/>
         <source>Translate Selection</source>
         <translation>划词翻译</translation>
     </message>

@@ -14,6 +14,8 @@ add_library(way2trans_core STATIC
     TranslateService.h
     OcrService.cpp
     OcrService.h
+    LibraryService.cpp
+    LibraryService.h
     storage/Storage.cpp
     storage/Storage.h
     storage/migrations.cpp

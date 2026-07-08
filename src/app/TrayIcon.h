@@ -6,6 +6,7 @@
 class Application;
 class QSystemTrayIcon;
 class QMenu;
+class QAction;
 
 // System tray entry (DESIGN.md §7 "TrayIcon").
 //
@@ -34,4 +35,5 @@ private:
     Application *m_app;
     QSystemTrayIcon *m_tray;
     QMenu *m_menu;
+    QAction *m_pauseRecordingAction = nullptr; // checkable "pause recording"
 };
