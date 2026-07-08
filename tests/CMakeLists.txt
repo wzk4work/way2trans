@@ -29,6 +29,12 @@ target_link_libraries(tst_langdetector PRIVATE Qt6::Test way2trans_core)
 add_test(NAME tst_langdetector COMMAND tst_langdetector)
 set_tests_properties(tst_langdetector PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# --- core: SQLite storage (history + vocabulary), hermetic temp DBs (M4) -----
+add_executable(tst_storage core/tst_storage.cpp)
+target_link_libraries(tst_storage PRIVATE Qt6::Test way2trans_core)
+add_test(NAME tst_storage COMMAND tst_storage)
+set_tests_properties(tst_storage PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # --- engines: response parsing (fixtures, no network) ----------------------
 add_executable(tst_googleengine engines/tst_googleengine.cpp)
 target_link_libraries(tst_googleengine PRIVATE Qt6::Test way2trans_engines way2trans_core)

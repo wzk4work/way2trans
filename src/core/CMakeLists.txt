@@ -14,6 +14,14 @@ add_library(way2trans_core STATIC
     TranslateService.h
     OcrService.cpp
     OcrService.h
+    storage/Storage.cpp
+    storage/Storage.h
+    storage/migrations.cpp
+    storage/migrations.h
+    storage/HistoryStore.cpp
+    storage/HistoryStore.h
+    storage/VocabStore.cpp
+    storage/VocabStore.h
 )
 
 target_include_directories(way2trans_core
@@ -26,6 +34,8 @@ target_link_libraries(way2trans_core
         Qt6::Core
         Qt6::Gui
         Qt6::Network
+        # SQLite-backed history/vocabulary storage (DESIGN.md §8.1).
+        Qt6::Sql
         way2trans_engines
         # OcrService picks and drives the OCR backends (DESIGN.md §6).
         way2trans_ocr
