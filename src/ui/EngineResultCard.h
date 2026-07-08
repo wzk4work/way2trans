@@ -4,6 +4,7 @@
 
 #include <QWidget>
 
+class QFrame;
 class QLabel;
 class QTextEdit;
 class QToolButton;
@@ -46,6 +47,7 @@ private:
 
     QString m_engineId;
     QLabel *m_header = nullptr;
+    QFrame *m_bodyFrame = nullptr;
     QTextEdit *m_body = nullptr;
     QToolButton *m_copyButton = nullptr;
     QToolButton *m_retryButton = nullptr;

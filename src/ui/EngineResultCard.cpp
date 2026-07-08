@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QResizeEvent>
@@ -46,15 +47,26 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
 
     m_layout->addLayout(headerRow);
 
-    m_body = new QTextEdit(this);
+    // The rounded box is a plain frame (QFrame rounds cleanly). The QTextEdit
+    // sits inside it fully transparent, so its rectangular viewport can't paint
+    // over the frame's rounded corners.
+    m_bodyFrame = new QFrame(this);
+    m_bodyFrame->setObjectName(QStringLiteral("resultBox"));
+    auto *bodyLayout = new QVBoxLayout(m_bodyFrame);
+    bodyLayout->setContentsMargins(8, 5, 8, 5);
+    bodyLayout->setSpacing(0);
+
+    m_body = new QTextEdit(m_bodyFrame);
     m_body->setObjectName(QStringLiteral("resultBody"));
     m_body->setReadOnly(true);
     m_body->setFrameShape(QFrame::NoFrame);
-    m_body->document()->setDocumentMargin(2);
+    m_body->document()->setDocumentMargin(0);
+    m_body->viewport()->setAutoFillBackground(false);
     m_body->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_body->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_body->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
-    m_layout->addWidget(m_body);
+    bodyLayout->addWidget(m_body);
+    m_layout->addWidget(m_bodyFrame);
 
     showPending();
 }
@@ -69,7 +81,7 @@ void EngineResultCard::showPending()
         m_body->setPlainText(tr("Translating…"));
         m_body->setProperty("state", QStringLiteral("pending"));
         // Keep the skeleton compact; it grows to fit once the result arrives.
-        m_body->setFixedHeight(32);
+        m_body->setFixedHeight(20);
     }
 }
 
@@ -106,12 +118,12 @@ void EngineResultCard::updateBodyHeight()
 {
     if (!m_body)
         return;
-    // viewport()->width() reflects the box padding once the card is laid out,
-    // so wrapping here matches what is actually rendered.
+    // viewport()->width() reflects the frame padding once the card is laid out,
+    // so wrapping here matches what is actually rendered. The rounded frame adds
+    // its own padding, so the body is sized to just the content (+ descenders).
     m_body->document()->setTextWidth(m_body->viewport()->width());
-    // + vertical stylesheet padding on the rounded body box.
-    const int h = int(m_body->document()->size().height()) + 14;
-    m_body->setFixedHeight(qBound(30, h, m_maxBodyHeight));
+    const int h = int(m_body->document()->size().height()) + 4;
+    m_body->setFixedHeight(qBound(20, h, m_maxBodyHeight));
 }
 
 void EngineResultCard::setBody(const QString &plainText)
