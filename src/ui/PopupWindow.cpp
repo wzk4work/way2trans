@@ -4,11 +4,13 @@
 
 #include <QApplication>
 #include <QEvent>
+#include <QFrame>
+#include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
-#include <QPainter>
-#include <QPainterPath>
+#include <QMouseEvent>
+#include <QShowEvent>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -36,51 +38,115 @@ bool looksLikeWord(const QString &text)
 }
 } // namespace
 
+namespace {
+// Padding reserved around the card for the drop shadow to render into. The
+// translucent top-level window is this much larger than the visible card.
+constexpr int kShadowMargin = 18;
+} // namespace
+
 PopupWindow::PopupWindow(QWidget *parent)
-    : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint)
+    : QWidget(parent, Qt::Tool | Qt::FramelessWindowHint)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setObjectName(QStringLiteral("popupWindow"));
-    setMinimumWidth(360);
-    setMaximumWidth(560);
 
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(14, 12, 14, 12);
-    root->setSpacing(8);
+    // Outer layout only reserves room for the shadow; the visible card is the
+    // inner container frame, which carries the rounded background and border.
+    auto *outer = new QVBoxLayout(this);
+    outer->setContentsMargins(kShadowMargin, kShadowMargin, kShadowMargin, kShadowMargin);
 
-    // --- header: source text (left) + lang pair + pin (right) -------------
+    m_container = new QFrame(this);
+    m_container->setObjectName(QStringLiteral("popupCard"));
+    m_container->setMinimumWidth(360);
+    m_container->setMaximumWidth(560);
+    m_container->installEventFilter(this); // drag-to-move (see eventFilter)
+    outer->addWidget(m_container);
+
+    auto *shadow = new QGraphicsDropShadowEffect(m_container);
+    shadow->setBlurRadius(28);
+    shadow->setColor(QColor(0, 0, 0, 110));
+    shadow->setOffset(0, 4);
+    m_container->setGraphicsEffect(shadow);
+
+    auto *root = new QVBoxLayout(m_container);
+    root->setContentsMargins(16, 12, 12, 14);
+    root->setSpacing(10);
+
+    // --- header: source text (left) + lang badge + pin/close (right) ------
     auto *headerRow = new QHBoxLayout;
-    m_sourceLabel = new QLabel(this);
+    headerRow->setSpacing(8);
+    m_sourceLabel = new QLabel(m_container);
     m_sourceLabel->setObjectName(QStringLiteral("sourceText"));
     m_sourceLabel->setWordWrap(true);
     m_sourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    headerRow->addWidget(m_sourceLabel, 1);
+    headerRow->addWidget(m_sourceLabel, 1, Qt::AlignTop);
 
-    auto *headerRight = new QVBoxLayout;
-    m_pinButton = new QToolButton(this);
+    m_langPairLabel = new QLabel(m_container);
+    m_langPairLabel->setObjectName(QStringLiteral("langPair"));
+    headerRow->addWidget(m_langPairLabel, 0, Qt::AlignTop);
+
+    m_pinButton = new QToolButton(m_container);
+    m_pinButton->setObjectName(QStringLiteral("iconButton"));
     m_pinButton->setCheckable(true);
     m_pinButton->setText(QStringLiteral("📌"));
     m_pinButton->setToolTip(tr("Pin (keep open on focus loss)"));
+    m_pinButton->setCursor(Qt::PointingHandCursor);
     connect(m_pinButton, &QToolButton::toggled, this, &PopupWindow::setPinned);
-    headerRight->addWidget(m_pinButton, 0, Qt::AlignRight);
+    headerRow->addWidget(m_pinButton, 0, Qt::AlignTop);
 
-    m_langPairLabel = new QLabel(this);
-    m_langPairLabel->setObjectName(QStringLiteral("langPair"));
-    headerRight->addWidget(m_langPairLabel, 0, Qt::AlignRight);
-    headerRow->addLayout(headerRight);
+    m_closeButton = new QToolButton(m_container);
+    m_closeButton->setObjectName(QStringLiteral("iconButton"));
+    m_closeButton->setText(QStringLiteral("✕"));
+    m_closeButton->setToolTip(tr("Close (Esc)"));
+    m_closeButton->setCursor(Qt::PointingHandCursor);
+    connect(m_closeButton, &QToolButton::clicked, this, &PopupWindow::close);
+    headerRow->addWidget(m_closeButton, 0, Qt::AlignTop);
     root->addLayout(headerRow);
 
     // --- cards container --------------------------------------------------
     m_cardsLayout = new QVBoxLayout;
-    m_cardsLayout->setSpacing(6);
+    m_cardsLayout->setSpacing(8);
     root->addLayout(m_cardsLayout);
 
-    // A soft stylesheet; theme-aware polish arrives with the settings work.
-    setStyleSheet(QStringLiteral("#popupWindow { }"
-                                 "#sourceText { font-size: 13px; }"
-                                 "#langPair { color: gray; font-size: 11px; }"
-                                 "#engineCard { background: palette(base); border-radius: 8px; }"
-                                 "#engineName { font-weight: bold; color: palette(highlight); }"));
+    setStyleSheet(QStringLiteral("#popupCard {"
+                                 "  background: palette(window);"
+                                 "  border: 1px solid palette(mid);"
+                                 "  border-radius: 14px;"
+                                 "}"
+                                 "#sourceText { font-size: 14px; color: palette(text); }"
+                                 "#langPair {"
+                                 "  color: palette(highlight-text);"
+                                 "  background: palette(highlight);"
+                                 "  border-radius: 8px;"
+                                 "  padding: 2px 8px;"
+                                 "  font-size: 11px;"
+                                 "}"
+                                 "QToolButton#iconButton {"
+                                 "  border: none;"
+                                 "  background: transparent;"
+                                 "  border-radius: 6px;"
+                                 "  padding: 2px 4px;"
+                                 "  font-size: 13px;"
+                                 "}"
+                                 "QToolButton#iconButton:hover { background: palette(midlight); }"
+                                 "QToolButton#iconButton:checked { background: palette(midlight); }"
+                                 "#engineCard {"
+                                 "  background: palette(base);"
+                                 "  border: 1px solid palette(midlight);"
+                                 "  border-radius: 10px;"
+                                 "}"
+                                 "#engineName {"
+                                 "  font-weight: 600;"
+                                 "  color: palette(highlight);"
+                                 "  font-size: 12px;"
+                                 "}"
+                                 "QToolButton#cardButton {"
+                                 "  border: 1px solid palette(mid);"
+                                 "  border-radius: 6px;"
+                                 "  padding: 2px 10px;"
+                                 "  color: palette(text);"
+                                 "}"
+                                 "QToolButton#cardButton:hover { background: palette(midlight); }"));
 }
 
 void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds)
@@ -92,7 +158,7 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
     m_langPairLabel->setText(QStringLiteral("%1 → %2").arg(request.sourceLang, request.targetLang));
 
     for (const QString &id : engineIds) {
-        auto *card = new EngineResultCard(id, engineDisplayName(id), this);
+        auto *card = new EngineResultCard(id, engineDisplayName(id), m_container);
         connect(card, &EngineResultCard::retryRequested, this, &PopupWindow::retryRequested);
         m_cards.insert(id, card);
         m_cardsLayout->addWidget(card);
@@ -132,24 +198,62 @@ void PopupWindow::keyPressEvent(QKeyEvent *event)
 
 bool PopupWindow::event(QEvent *event)
 {
-    // Close on focus loss unless pinned. A Qt::Popup window receives
-    // WindowDeactivate when the user clicks elsewhere.
-    if (event->type() == QEvent::WindowDeactivate && !m_pinned) {
+    // Track activation so we don't self-close on a spurious WindowDeactivate
+    // that some window managers deliver before the Tool window ever gains
+    // focus (which would make the popup vanish the instant it appears).
+    if (event->type() == QEvent::WindowActivate)
+        m_everActivated = true;
+
+    // Close on focus loss unless pinned. A Qt::Tool window receives
+    // WindowDeactivate when another window is activated. Ignore the transient
+    // deactivation that happens while the user drags the window, and any that
+    // arrives before the window was ever actually activated.
+    if (event->type() == QEvent::WindowDeactivate && m_everActivated && !m_pinned && !m_dragging) {
         close();
         return true;
     }
     return QWidget::event(event);
 }
 
-void PopupWindow::paintEvent(QPaintEvent *event)
+void PopupWindow::showEvent(QShowEvent *event)
 {
-    Q_UNUSED(event);
-    // Draw the rounded card background ourselves since the window is translucent.
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-    QPainterPath path;
-    path.addRoundedRect(rect().adjusted(0, 0, -1, -1), 12, 12);
-    p.fillPath(path, palette().window());
-    p.setPen(palette().mid().color());
-    p.drawPath(path);
+    QWidget::showEvent(event);
+    // Tool windows do not auto-activate on show the way Popup did; do it
+    // explicitly so Esc/focus-loss handling works from the moment it appears.
+    raise();
+    activateWindow();
+}
+
+bool PopupWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_container) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_dragging = true;
+                m_dragOffset = me->globalPosition().toPoint() - frameGeometry().topLeft();
+                return true;
+            }
+            break;
+        }
+        case QEvent::MouseMove: {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (m_dragging && (me->buttons() & Qt::LeftButton)) {
+                move(me->globalPosition().toPoint() - m_dragOffset);
+                return true;
+            }
+            break;
+        }
+        case QEvent::MouseButtonRelease:
+            if (m_dragging) {
+                m_dragging = false;
+                return true;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }

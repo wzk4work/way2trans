@@ -3,9 +3,11 @@
 #include "engines/TranslateTypes.h"
 
 #include <QHash>
+#include <QPoint>
 #include <QWidget>
 
 class QVBoxLayout;
+class QFrame;
 class QLabel;
 class QToolButton;
 class EngineResultCard;
@@ -38,17 +40,27 @@ signals:
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     bool event(QEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    // Drag-to-move: the window is frameless, so the header/background acts as a
+    // title bar. Events reach us either directly (container background) or by
+    // propagation from non-interactive children; interactive widgets (text,
+    // buttons) keep their own mouse handling.
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void setPinned(bool pinned);
     void clearCards();
 
+    QFrame *m_container = nullptr;
     QLabel *m_sourceLabel = nullptr;
     QLabel *m_langPairLabel = nullptr;
     QToolButton *m_pinButton = nullptr;
+    QToolButton *m_closeButton = nullptr;
     QVBoxLayout *m_cardsLayout = nullptr;
     QHash<QString, EngineResultCard *> m_cards;
     bool m_pinned = false;
     bool m_singleWord = false;
+    bool m_everActivated = false;
+    bool m_dragging = false;
+    QPoint m_dragOffset;
 };
