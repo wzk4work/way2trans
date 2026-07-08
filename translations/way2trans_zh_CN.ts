@@ -123,6 +123,17 @@
     </message>
 </context>
 <context>
+    <name>WlSelectionSource</name>
+    <message>
+        <source>wl-paste not found. Install wl-clipboard to read the selection on Wayland.</source>
+        <translation>未找到 wl-paste。请安装 wl-clipboard 以在 Wayland 下读取选中文本。</translation>
+    </message>
+    <message>
+        <source>Could not run wl-paste (%1). Is wl-clipboard installed?</source>
+        <translation>无法运行 wl-paste（%1）。是否已安装 wl-clipboard？</translation>
+    </message>
+</context>
+<context>
     <name>X11SelectionSource</name>
     <message>
         <source>Selection clipboard unavailable</source>

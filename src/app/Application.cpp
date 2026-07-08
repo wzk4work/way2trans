@@ -233,6 +233,10 @@ void Application::setupServices()
 {
     PlatformFactory::logProbeSummary();
 
+    // Must run before the popup QWindow is created so the Wayland layer-shell
+    // integration is installed in time (no-op on X11).
+    PlatformFactory::prepareWindowing();
+
     // Core translation service (owns the shared QNetworkAccessManager + engines).
     m_translateService = new TranslateService(this);
 

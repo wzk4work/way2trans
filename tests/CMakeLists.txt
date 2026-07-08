@@ -39,3 +39,18 @@ add_executable(tst_bingengine engines/tst_bingengine.cpp)
 target_link_libraries(tst_bingengine PRIVATE Qt6::Test way2trans_engines way2trans_core)
 add_test(NAME tst_bingengine COMMAND tst_bingengine)
 set_tests_properties(tst_bingengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# --- platform: wl-paste output parsing + factory backend selection ----------
+# Pure logic only: no Wayland compositor, no wl-paste subprocess, no real X11.
+add_executable(tst_wlselectionsource platform/tst_wlselectionsource.cpp)
+target_link_libraries(tst_wlselectionsource PRIVATE Qt6::Test way2trans_platform way2trans_core)
+add_test(NAME tst_wlselectionsource COMMAND tst_wlselectionsource)
+set_tests_properties(tst_wlselectionsource PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_platformfactory platform/tst_platformfactory.cpp)
+target_link_libraries(tst_platformfactory PRIVATE Qt6::Test way2trans_platform way2trans_core)
+add_test(NAME tst_platformfactory COMMAND tst_platformfactory)
+# Hermetic config + offscreen QPA so factory override reads don't touch real config
+# and QGuiApplication::platformName() is neither xcb nor wayland (isolates overrides).
+set_tests_properties(tst_platformfactory PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-factory;QT_QPA_PLATFORM=offscreen")
