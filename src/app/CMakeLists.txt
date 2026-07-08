@@ -15,6 +15,10 @@ target_compile_definitions(way2trans
     PRIVATE WAY2TRANS_APP_ID="${WAY2TRANS_APP_ID}"
 )
 
+target_include_directories(way2trans
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
 target_link_libraries(way2trans
     PRIVATE
         Qt6::Core
@@ -23,4 +27,6 @@ target_link_libraries(way2trans
         Qt6::DBus
         way2trans_core
         way2trans_ui
+        way2trans_platform
+        way2trans_engines
 )

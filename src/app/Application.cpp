@@ -1,14 +1,23 @@
 #include "Application.h"
 
 #include "DBusService.h"
+#include "HotkeyBackend.h"
 #include "Logging.h"
 #include "MainWindow.h"
+#include "PlatformFactory.h"
+#include "PopupPlacement.h"
+#include "PopupWindow.h"
+#include "SelectionSource.h"
+#include "Settings.h"
+#include "TranslateService.h"
 #include "TrayIcon.h"
+#include "engines/TranslateTypes.h"
 
 #include <QCommandLineParser>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QKeySequence>
 #include <QStringList>
 
 #include <cstdio>
@@ -48,22 +57,20 @@ Application::~Application() = default;
 CliAction Application::parseCommandLine(const QStringList &arguments)
 {
     QCommandLineParser parser;
-    parser.setApplicationDescription(
-        QStringLiteral("way2trans - Linux word/screenshot translation tool"));
+    parser.setApplicationDescription(QStringLiteral("way2trans - Linux word/screenshot translation tool"));
     parser.addHelpOption();
     parser.addVersionOption();
 
-    QCommandLineOption textOption(QStringList{QStringLiteral("text")},
-        QStringLiteral("Translate the given text and print the result."),
-        QStringLiteral("text"));
+    QCommandLineOption textOption(QStringList {QStringLiteral("text")},
+        QStringLiteral("Translate the given text and print the result."), QStringLiteral("text"));
     parser.addOption(textOption);
 
     // Positional: `trigger <action>`.
-    parser.addPositionalArgument(QStringLiteral("command"),
-        QStringLiteral("trigger <selection|capture|clipboard|show-main>"));
+    parser.addPositionalArgument(
+        QStringLiteral("command"), QStringLiteral("trigger <selection|capture|clipboard|show-main>"));
 
     if (!parser.parse(arguments)) {
-        return CliAction{CliAction::Kind::Invalid, {}, {}, parser.errorText()};
+        return CliAction {CliAction::Kind::Invalid, {}, {}, parser.errorText()};
     }
 
     // Honour the built-in --help / --version options: print and exit cleanly
@@ -74,30 +81,29 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
         parser.showVersion(); // does not return
 
     if (parser.isSet(textOption)) {
-        return CliAction{CliAction::Kind::TranslateText, {}, parser.value(textOption), {}};
+        return CliAction {CliAction::Kind::TranslateText, {}, parser.value(textOption), {}};
     }
 
     const QStringList positional = parser.positionalArguments();
     if (positional.isEmpty()) {
-        return CliAction{CliAction::Kind::RunDaemon, {}, {}, {}};
+        return CliAction {CliAction::Kind::RunDaemon, {}, {}, {}};
     }
 
     const QString command = positional.first();
     if (command == QLatin1String("trigger")) {
         if (positional.size() < 2) {
-            return CliAction{CliAction::Kind::Invalid, {}, {},
+            return CliAction {CliAction::Kind::Invalid, {}, {},
                 QStringLiteral("'trigger' requires an action: selection|capture|clipboard|show-main")};
         }
         const QString action = positional.at(1);
         if (dbusMethodForTrigger(action).isEmpty()) {
-            return CliAction{CliAction::Kind::Invalid, {}, {},
-                QStringLiteral("unknown trigger action: %1").arg(action)};
+            return CliAction {
+                CliAction::Kind::Invalid, {}, {}, QStringLiteral("unknown trigger action: %1").arg(action)};
         }
-        return CliAction{CliAction::Kind::Trigger, action, {}, {}};
+        return CliAction {CliAction::Kind::Trigger, action, {}, {}};
     }
 
-    return CliAction{CliAction::Kind::Invalid, {}, {},
-        QStringLiteral("unknown command: %1").arg(command)};
+    return CliAction {CliAction::Kind::Invalid, {}, {}, QStringLiteral("unknown command: %1").arg(command)};
 }
 
 bool Application::registerDBusService()
@@ -112,8 +118,7 @@ bool Application::registerDBusService()
     // already owned, another instance is running.
     // Parented to this; Qt owns it. We only null the pointer back out on failure.
     m_dbusAdaptor = new DBusService(this);
-    if (!bus.registerObject(QString::fromLatin1(w2t::dbus::kObjectPath), this,
-            QDBusConnection::ExportAdaptors)) {
+    if (!bus.registerObject(QString::fromLatin1(w2t::dbus::kObjectPath), this, QDBusConnection::ExportAdaptors)) {
         qCWarning(w2tApp) << "Failed to register D-Bus object at" << w2t::dbus::kObjectPath;
         delete m_dbusAdaptor;
         m_dbusAdaptor = nullptr;
@@ -128,8 +133,7 @@ bool Application::registerDBusService()
         return false;
     }
 
-    qCInfo(w2tApp) << "Registered D-Bus service" << w2t::dbus::kServiceName
-                   << "at" << w2t::dbus::kObjectPath;
+    qCInfo(w2tApp) << "Registered D-Bus service" << w2t::dbus::kServiceName << "at" << w2t::dbus::kObjectPath;
     return true;
 }
 
@@ -143,6 +147,8 @@ int Application::runAsPrimary(const CliAction &initialAction)
     Q_ASSERT(m_dbusAdaptor); // tryBecomePrimary() must have succeeded first.
 
     m_mainWindow = std::make_unique<MainWindow>();
+
+    setupServices();
 
     m_tray = std::make_unique<TrayIcon>(this);
     if (m_tray->isAvailable()) {
@@ -165,8 +171,7 @@ bool Application::forwardToRunningInstance(const CliAction &action)
         return false;
     }
 
-    QDBusInterface iface(QString::fromLatin1(w2t::dbus::kServiceName),
-        QString::fromLatin1(w2t::dbus::kObjectPath),
+    QDBusInterface iface(QString::fromLatin1(w2t::dbus::kServiceName), QString::fromLatin1(w2t::dbus::kObjectPath),
         QString::fromLatin1(w2t::dbus::kInterfaceName), bus);
     if (!iface.isValid()) {
         qCWarning(w2tApp) << "Cannot forward action: running instance interface invalid:"
@@ -185,8 +190,8 @@ bool Application::forwardToRunningInstance(const CliAction &action)
         return true;
     }
 
-    const QString method = dbusMethodForTrigger(
-        action.kind == CliAction::Kind::Trigger ? action.trigger : QStringLiteral("show-main"));
+    const QString method
+        = dbusMethodForTrigger(action.kind == CliAction::Kind::Trigger ? action.trigger : QStringLiteral("show-main"));
     QDBusReply<void> reply = iface.call(method);
     if (!reply.isValid()) {
         qCWarning(w2tApp) << "Forward of" << method << "failed:" << reply.error().message();
@@ -224,12 +229,90 @@ void Application::dispatch(const CliAction &action)
     }
 }
 
+void Application::setupServices()
+{
+    PlatformFactory::logProbeSummary();
+
+    // Core translation service (owns the shared QNetworkAccessManager + engines).
+    m_translateService = new TranslateService(this);
+
+    // Result popup + placement strategy.
+    m_popup = std::make_unique<PopupWindow>();
+    m_popupPlacement = PlatformFactory::createPopupPlacement();
+    connect(m_popup.get(), &PopupWindow::retryRequested, m_translateService, &TranslateService::retry);
+    connect(m_translateService, &TranslateService::requestStarted, this,
+        [this](const TranslateRequest &req, const QStringList &ids) { m_popup->beginRequest(req, ids); });
+    connect(m_translateService, &TranslateService::resultReady, this, [this](const TranslateResult &result) {
+        if (result.ok())
+            qCInfo(w2tApp) << "result" << result.engineId << "->" << result.translatedText.left(60);
+        else
+            qCWarning(w2tApp) << "result" << result.engineId << "error:" << result.error;
+        m_popup->applyResult(result);
+    });
+
+    // Platform selection source: PRIMARY selection -> translate.
+    m_selectionSource = PlatformFactory::createSelectionSource(this);
+    connect(m_selectionSource, &SelectionSource::selectionFetched, this,
+        [this](const QString &text) { translateSelectionText(text); });
+    connect(m_selectionSource, &SelectionSource::fetchFailed, this,
+        [](const QString &reason) { qCWarning(w2tApp) << "selection fetch failed:" << reason; });
+
+    // Global hotkey backend. Registration success/failure is logged; a failure
+    // just means the user drives the action via `way2trans trigger selection`.
+    m_hotkeyBackend = PlatformFactory::createHotkeyBackend(this);
+    connect(m_hotkeyBackend, &HotkeyBackend::activated, this, [this](const QString &actionId) {
+        if (actionId == QLatin1String("translate-selection"))
+            triggerSelection();
+        else if (actionId == QLatin1String("translate-capture"))
+            triggerCapture();
+        else if (actionId == QLatin1String("translate-clipboard"))
+            triggerClipboard();
+        else if (actionId == QLatin1String("show-main"))
+            showMainWindow();
+    });
+
+    const QString seq = Settings::instance()
+                            .value(QStringLiteral("hotkeys/translate-selection"), QStringLiteral("Ctrl+Alt+D"))
+                            .toString();
+    const bool grabbed = m_hotkeyBackend->registerAction(
+        QStringLiteral("translate-selection"), QKeySequence(seq), tr("Translate selection"));
+    if (grabbed)
+        qCInfo(w2tApp) << "translate-selection hotkey registered:" << seq;
+    else
+        qCInfo(w2tApp) << "translate-selection hotkey not grabbed (" << m_hotkeyBackend->name()
+                       << "); use `way2trans trigger selection`";
+}
+
+void Application::translateSelectionText(const QString &text)
+{
+    if (text.trimmed().isEmpty()) {
+        qCInfo(w2tApp) << "empty selection; showing nothing";
+        if (m_tray && m_tray->isAvailable())
+            m_tray->notifyNoSelection();
+        return;
+    }
+
+    // Show the popup (skeleton) at the cursor before results arrive, then kick
+    // off the translation.
+    if (m_popup && m_popupPlacement) {
+        m_popup->show();
+        m_popupPlacement->place(m_popup->windowHandle(), m_popup->sizeHint());
+        m_popup->raise();
+        m_popup->activateWindow();
+    }
+    m_translateService->translate(text);
+}
+
 // --- Actions ---------------------------------------------------------------
 
 void Application::triggerSelection()
 {
-    // M0: no platform selection backend yet (arrives in M1). Log the intent.
-    qCInfo(w2tApp) << "triggerSelection (M0 stub)";
+    qCInfo(w2tApp) << "triggerSelection";
+    if (!m_selectionSource) {
+        qCWarning(w2tApp) << "triggerSelection before services ready";
+        return;
+    }
+    m_selectionSource->fetchSelection();
 }
 
 void Application::triggerCapture()

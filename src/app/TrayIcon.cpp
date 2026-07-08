@@ -68,3 +68,11 @@ void TrayIcon::show()
 {
     m_tray->show();
 }
+
+void TrayIcon::notifyNoSelection()
+{
+    if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
+        m_tray->showMessage(
+            QStringLiteral("way2trans"), tr("No selected text detected"), QSystemTrayIcon::Information, 1500);
+    }
+}

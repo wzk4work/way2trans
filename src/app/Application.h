@@ -7,19 +7,26 @@
 class DBusService;
 class TrayIcon;
 class MainWindow;
+class PopupWindow;
+class PopupPlacement;
+class SelectionSource;
+class HotkeyBackend;
+class TranslateService;
+struct TranslateRequest;
+struct TranslateResult;
 
 // Result of parsing the command line into a single deferred action.
 struct CliAction {
     enum class Kind {
-        RunDaemon,   // no action verb: start (or reuse) the resident instance
-        Trigger,     // `trigger <selection|capture|clipboard|show-main>`
+        RunDaemon, // no action verb: start (or reuse) the resident instance
+        Trigger, // `trigger <selection|capture|clipboard|show-main>`
         TranslateText, // `--text "..."`
-        Invalid,     // parse error / unknown verb
+        Invalid, // parse error / unknown verb
     };
 
     Kind kind = Kind::RunDaemon;
-    QString trigger;   // for Kind::Trigger
-    QString text;      // for Kind::TranslateText
+    QString trigger; // for Kind::Trigger
+    QString text; // for Kind::TranslateText
     QString errorText; // for Kind::Invalid
 };
 
@@ -29,8 +36,7 @@ struct CliAction {
 // main window. On startup it tries to own the bus name io.github.way2trans; if
 // that fails, another instance is already running, so it forwards the requested
 // CLI action over D-Bus and exits (DESIGN.md §9).
-class Application : public QApplication
-{
+class Application : public QApplication {
     Q_OBJECT
 
 public:
@@ -72,9 +78,24 @@ private:
     // Returns false if the name is already owned by another instance.
     bool registerDBusService();
 
+    // Build the platform backends, translate service and popup, and register the
+    // configured global hotkeys. Called once when becoming the primary instance.
+    void setupServices();
+
+    // Show the result popup near the cursor and kick off a translation.
+    void translateSelectionText(const QString &text);
+
     // Parented to this Application (Qt manages its lifetime); non-null once
     // this process is the primary instance.
     DBusService *m_dbusAdaptor = nullptr;
     std::unique_ptr<TrayIcon> m_tray;
     std::unique_ptr<MainWindow> m_mainWindow;
+
+    // M1 selection-translation pipeline (all owned via QObject parent = this,
+    // except the placement strategy which is a plain object).
+    TranslateService *m_translateService = nullptr;
+    SelectionSource *m_selectionSource = nullptr;
+    HotkeyBackend *m_hotkeyBackend = nullptr;
+    std::unique_ptr<PopupPlacement> m_popupPlacement;
+    std::unique_ptr<PopupWindow> m_popup;
 };

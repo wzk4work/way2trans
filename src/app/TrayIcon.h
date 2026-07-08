@@ -11,8 +11,7 @@ class QMenu;
 // Qt routes QSystemTrayIcon through StatusNotifierItem / D-Bus on modern
 // desktops (KDE/XFCE/Cinnamon). Every menu action forwards to the owning
 // Application; M0 wiring only logs or pops the main window.
-class TrayIcon : public QObject
-{
+class TrayIcon : public QObject {
     Q_OBJECT
 
 public:
@@ -22,6 +21,9 @@ public:
     // True when a system tray is actually available in this session.
     bool isAvailable() const;
     void show();
+
+    // Light "no selected text" hint (DESIGN.md §3.1: silent or gentle prompt).
+    void notifyNoSelection();
 
 private:
     Application *m_app;
