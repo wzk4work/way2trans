@@ -290,6 +290,7 @@ signals:
 - **SettingsDialog**：常规（语言对、启动项）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 引擎（启停、排序、key 配置、连通性测试按钮）/ OCR / 平台（后端探测结果展示与强制覆盖）。
 - **TrayIcon**：StatusNotifierItem（Qt 自动走 SNI/D-Bus，KDE/XFCE/Cinnamon 都支持），菜单含各动作入口。
 - 主题跟随系统（Qt 6.5+ `colorScheme`），深浅色两套样式表。
+- **国际化**：所有用户可见字符串用 `tr()`、源串英文；`zh_CN` 翻译随功能同步维护（`translations/way2trans_zh_CN.ts`，构建时 `lrelease` 成 `.qm` 嵌入 `:/i18n`，运行时按系统 locale 加载）。开发规约见 AGENTS.md「国际化」。一期只维护中文，其他语言 M5 补齐。
 
 ## 8. 数据持久化：历史记录与生词本
 
@@ -400,7 +401,7 @@ CREATE TABLE vocab (
 | **M2 Wayland** | wl-paste 取词、portal 快捷键、LayerShellQt 弹窗、平台探测完整化 | KDE Wayland 与 Sway 全流程可用 |
 | **M3 截图翻译** | ScreenshotBackend ×3、CaptureOverlay、Tesseract 接入、OCR helper 进程框架 + 微信 OCR 后端 | 三类环境截图翻译可用，有微信环境时默认走微信 OCR |
 | **M4 引擎与数据** | DeepL、LLM 流式引擎、词典卡片、SQLite 存储层 + 历史记录 + 生词本（含 Anki/CSV/JSON 导出）、设置页完整 | 对标 Bob 的核心日常体验 |
-| **M5 分发** | AUR + AppImage + Flatpak、文档、i18n(zh_CN) | 外部用户可安装使用 |
+| **M5 分发** | AUR + AppImage + Flatpak、文档、其他语言的 i18n（`zh_CN` 已随功能持续维护，见 §7） | 外部用户可安装使用 |
 | M6+ | RapidOCR、原生 data-control、朗读 TTS、剪贴板监听模式、AnkiConnect 推送 | — |
 
 ## 14. 主要风险与对策

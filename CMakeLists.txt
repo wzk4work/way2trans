@@ -35,6 +35,23 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Network DBus Sql)
 # Qt Test is required for the test target but optional for a plain build.
 find_package(Qt6 6.4 QUIET COMPONENTS Test)
 
+# Qt Linguist tools drive i18n. Optional: without them the app still builds and
+# runs with the English source strings (DESIGN.md §7 i18n policy). Translations
+# are hand-maintained per feature; other languages are added in M5.
+find_package(Qt6 6.4 QUIET COMPONENTS LinguistTools)
+set(WAY2TRANS_HAVE_TRANSLATIONS ${Qt6LinguistTools_FOUND})
+set(WAY2TRANS_TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/translations/way2trans_zh_CN.ts)
+if(WAY2TRANS_HAVE_TRANSLATIONS)
+    # Developer-only: refresh the .ts from all sources. Not part of ALL, so it
+    # never clobbers hand-written translations during a normal build.
+    add_custom_target(update_translations
+        COMMAND Qt6::lupdate -recursive ${CMAKE_CURRENT_SOURCE_DIR}/src
+                -ts ${WAY2TRANS_TS_FILES}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Updating translation source files from tr() strings"
+        VERBATIM)
+endif()
+
 # --- Optional dependencies (feature-gated, never hard-fail) ----------------
 # Platform backends (M1+) will grow here; probing now keeps the feature summary
 # honest and lets a minimal environment still build the X11-capable core.
@@ -62,6 +79,8 @@ add_feature_info(LayerShellQt WAY2TRANS_HAVE_LAYERSHELL
     "Wayland layer-shell popup/overlay placement (optional, M2)")
 add_feature_info(X11Hotkeys WAY2TRANS_HAVE_XCB_KEYSYMS
     "X11 global hotkeys via XGrabKey (xcb + xcb-keysyms; Null fallback otherwise)")
+add_feature_info(Translations WAY2TRANS_HAVE_TRANSLATIONS
+    "Embedded UI translations via Qt Linguist (English source otherwise)")
 
 # --- Subdirectories --------------------------------------------------------
 add_subdirectory(src)

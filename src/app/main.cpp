@@ -1,13 +1,26 @@
 #include "Application.h"
 #include "Logging.h"
 
+#include <QLocale>
 #include <QStringList>
+#include <QTranslator>
 
 #include <cstdio>
 
 int main(int argc, char **argv)
 {
     Application app(argc, argv);
+
+#ifdef WAY2TRANS_HAVE_TRANSLATIONS
+    // Load UI translations for the system locale before any widgets are built.
+    // Falls back to the English source strings when no matching .qm exists.
+    auto *translator = new QTranslator(&app);
+    if (translator->load(QLocale(), QStringLiteral("way2trans"), QStringLiteral("_"), QStringLiteral(":/i18n"))) {
+        QCoreApplication::installTranslator(translator);
+    } else {
+        qCInfo(w2tApp) << "No translation for locale" << QLocale().name() << "; using source strings";
+    }
+#endif
 
     const CliAction action = Application::parseCommandLine(app.arguments());
     if (action.kind == CliAction::Kind::Invalid) {

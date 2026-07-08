@@ -56,8 +56,17 @@ packaging/      AppImage / Flatpak / deb 打包配置
 - QObject 派生类通过 parent 管理生命周期；非 QObject 用智能指针，禁止裸 `new`/`delete`
 - 不使用异常做控制流；可失败操作返回 `std::optional` / 带错误信息的 result 结构，或走信号上报
 - 异步优先信号槽，不阻塞 UI 线程；子进程用 `QProcess` 异步接口
-- 标识符与注释用英文；用户可见字符串一律 `tr()` 包裹（源语言英文，中文走翻译文件）
+- 标识符与注释用英文；用户可见字符串一律用 `tr()` 包裹，**源串写英文**（详见下方「国际化」）
 - 提交前跑 `clang-format`（配置在仓库根 `.clang-format`，Qt 风格）
+
+## 国际化（i18n）
+
+- **源串一律英文**，用 `tr()` 包裹；禁止把中文（或任何非英文）直接写进 `tr()`。
+- 中文是一等公民、随功能同步维护：**新增或修改任何用户可见字符串时，必须在同一次改动里同步更新 [translations/way2trans_zh_CN.ts](translations/way2trans_zh_CN.ts)**，补上对应的 `<translation>`，不允许留空/`unfinished`。
+- 其他语言留到 M5，一期只维护 `zh_CN`。
+- 刷新 .ts：`cmake --build --preset dev --target update_translations`（用 lupdate 扫 `src/`，仅补充源串、不覆盖已有翻译；不进 ALL 构建）。构建时自动 `lrelease` 成 `.qm` 并嵌入 `:/i18n` 资源，运行时按系统 locale 加载（见 [main.cpp](src/app/main.cpp)）。
+- 缺 Qt LinguistTools 时构建不失败，回退英文源串（CMake 特性开关 `WAY2TRANS_HAVE_TRANSLATIONS`）。
+- `tr()` 的 context 是所在类名；`.ts` 里按 `<context><name>类名</name>` 归组，改动涉及重命名类时注意同步。
 
 ## Git 规约
 
