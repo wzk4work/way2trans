@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build & Test (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config clang-format \
+            qt6-base-dev qt6-base-dev-tools \
+            libqt6sql6-sqlite \
+            dbus dbus-x11
+
+      - name: clang-format check
+        run: |
+          shopt -s globstar nullglob
+          files=(src/**/*.cpp src/**/*.h tests/**/*.cpp tests/**/*.h)
+          echo "Checking ${#files[@]} files"
+          clang-format --dry-run --Werror "${files[@]}"
+
+      - name: Configure (dev)
+        run: cmake --preset dev
+
+      - name: Build (dev)
+        run: cmake --build --preset dev
+
+      - name: Test (dev)
+        # Run ctest under a private session bus so D-Bus works headless. The
+        # tests set QT_QPA_PLATFORM=offscreen themselves, so no X server needed.
+        run: dbus-run-session -- ctest --preset dev
+
+      - name: Configure (release)
+        run: cmake --preset release
+
+      - name: Build (release)
+        run: cmake --build --preset release

@@ -1,0 +1,34 @@
+# Build output
+/build/
+build/
+out/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake-build-*/
+
+# Caches / tooling
+.cache/
+.ccache/
+compile_commands.json
+.clangd/
+
+# Qt / editor
+*.autosave
+*.pro.user*
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+.qmake.stash
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store

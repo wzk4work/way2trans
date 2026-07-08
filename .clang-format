@@ -1,0 +1,55 @@
+# way2trans clang-format config
+# Qt-idiomatic style: 4-space indent, pointer glued to the variable, 120-col limit.
+# See AGENTS.md for the naming/style conventions this complements.
+---
+Language: Cpp
+BasedOnStyle: WebKit
+
+Standard: c++20
+ColumnLimit: 120
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+NamespaceIndentation: None
+IndentCaseLabels: false
+
+# Pointers/references glued to the variable (Qt idiom: QObject *obj)
+PointerAlignment: Right
+ReferenceAlignment: Right
+DerivePointerAlignment: false
+
+# Braces
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  SplitEmptyFunction: false
+
+# Spacing / wrapping
+SpaceBeforeParens: ControlStatements
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 4
+Cpp11BracedListStyle: true
+
+# Includes
+SortIncludes: true
+IncludeBlocks: Preserve
+
+# Misc
+FixNamespaceComments: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
