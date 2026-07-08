@@ -381,6 +381,17 @@ void Application::setupServices()
         qCInfo(w2tApp) << "translate-selection hotkey not grabbed (" << m_hotkeyBackend->name()
                        << "); use `way2trans trigger selection`";
 
+    const QString captureSeq = Settings::instance()
+                                   .value(QStringLiteral("hotkeys/translate-capture"), QStringLiteral("Ctrl+Alt+S"))
+                                   .toString();
+    const bool captureGrabbed = m_hotkeyBackend->registerAction(
+        QStringLiteral("translate-capture"), QKeySequence(captureSeq), tr("Translate screenshot"));
+    if (captureGrabbed)
+        qCInfo(w2tApp) << "translate-capture hotkey registered:" << captureSeq;
+    else
+        qCInfo(w2tApp) << "translate-capture hotkey not grabbed (" << m_hotkeyBackend->name()
+                       << "); use `way2trans trigger capture`";
+
     // --- M3 screenshot translation ---------------------------------------
     m_screenshotBackend = PlatformFactory::createScreenshotBackend(this);
     connect(m_screenshotBackend, &ScreenshotBackend::captured, this, &Application::onScreensCaptured);

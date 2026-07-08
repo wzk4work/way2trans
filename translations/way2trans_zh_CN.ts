@@ -8,6 +8,10 @@
         <source>Translate selection</source>
         <translation>翻译选中文本</translation>
     </message>
+    <message>
+        <source>Translate screenshot</source>
+        <translation>截图翻译</translation>
+    </message>
 </context>
 <context>
     <name>BingWebEngine</name>
