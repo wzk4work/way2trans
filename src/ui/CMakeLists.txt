@@ -8,6 +8,8 @@ add_library(way2trans_ui STATIC
     EngineResultCard.h
     PopupWindow.cpp
     PopupWindow.h
+    CaptureOverlay.cpp
+    CaptureOverlay.h
 )
 
 target_include_directories(way2trans_ui

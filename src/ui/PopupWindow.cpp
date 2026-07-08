@@ -10,6 +10,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMouseEvent>
+#include <QPlainTextEdit>
 #include <QShowEvent>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -101,11 +102,24 @@ PopupWindow::PopupWindow(QWidget *parent)
     root->addLayout(titleRow);
 
     // --- source text: full-width boxed original text ----------------------
+    // Two widgets share the slot: a read-only label for the selection flow, and
+    // an editable box for the OCR flow (edit to re-translate, DESIGN.md §3.2).
+    // Only one is visible per request.
     m_sourceLabel = new QLabel(m_container);
     m_sourceLabel->setObjectName(QStringLiteral("sourceText"));
     m_sourceLabel->setWordWrap(true);
     m_sourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     root->addWidget(m_sourceLabel);
+
+    m_sourceEdit = new QPlainTextEdit(m_container);
+    m_sourceEdit->setObjectName(QStringLiteral("sourceEdit"));
+    m_sourceEdit->setToolTip(tr("Edit the recognised text, then press Ctrl+Enter to re-translate"));
+    m_sourceEdit->setPlaceholderText(tr("Recognised text (editable)"));
+    m_sourceEdit->setTabChangesFocus(true);
+    m_sourceEdit->setMaximumHeight(96);
+    m_sourceEdit->installEventFilter(this); // Ctrl+Enter -> re-translate
+    m_sourceEdit->hide();
+    root->addWidget(m_sourceEdit);
 
     // --- cards container --------------------------------------------------
     m_cardsLayout = new QVBoxLayout;
@@ -117,7 +131,7 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "  border: 1px solid palette(mid);"
                                  "  border-radius: 14px;"
                                  "}"
-                                 "#sourceText {"
+                                 "#sourceText, #sourceEdit {"
                                  "  font-size: 14px;"
                                  "  color: palette(text);"
                                  "  background: palette(base);"
@@ -165,12 +179,21 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "QToolButton#cardButton:hover { background: palette(midlight); }"));
 }
 
-void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds)
+void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds, bool editableSource)
 {
     clearCards();
     m_singleWord = looksLikeWord(request.text);
 
-    m_sourceLabel->setText(request.text);
+    // Show the read-only label or the editable box depending on the flow.
+    m_sourceLabel->setVisible(!editableSource);
+    m_sourceEdit->setVisible(editableSource);
+    if (editableSource) {
+        // Avoid emitting sourceEdited while we programmatically set the text.
+        QSignalBlocker blocker(m_sourceEdit);
+        m_sourceEdit->setPlainText(request.text);
+    } else {
+        m_sourceLabel->setText(request.text);
+    }
     m_langPairLabel->setText(QStringLiteral("%1 → %2").arg(request.sourceLang, request.targetLang));
 
     for (const QString &id : engineIds) {
@@ -242,6 +265,19 @@ void PopupWindow::showEvent(QShowEvent *event)
 
 bool PopupWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    // Ctrl+Enter in the editable source box commits an edit and asks for a
+    // re-translation of the new text (DESIGN.md §3.2).
+    if (watched == m_sourceEdit && event->type() == QEvent::KeyPress) {
+        auto *ke = static_cast<QKeyEvent *>(event);
+        const bool isEnter = ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter;
+        if (isEnter && (ke->modifiers() & Qt::ControlModifier)) {
+            const QString text = m_sourceEdit->toPlainText().trimmed();
+            if (!text.isEmpty())
+                emit sourceEdited(text);
+            return true;
+        }
+    }
+
     if (watched == m_container) {
         switch (event->type()) {
         case QEvent::MouseButtonPress: {

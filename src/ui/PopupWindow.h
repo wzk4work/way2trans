@@ -10,6 +10,7 @@ class QVBoxLayout;
 class QFrame;
 class QLabel;
 class QToolButton;
+class QPlainTextEdit;
 class EngineResultCard;
 
 // Frameless rounded result popup (DESIGN.md §7).
@@ -28,7 +29,11 @@ public:
 
     // Reset to a fresh skeleton for a new request: show the source text and one
     // pending card per engine id. Called before results start arriving.
-    void beginRequest(const TranslateRequest &request, const QStringList &engineIds);
+    // When `editableSource` is true (screenshot / OCR flow, DESIGN.md §3.2) the
+    // original text box becomes editable and committing an edit re-triggers the
+    // translation via sourceEdited().
+    void beginRequest(
+        const TranslateRequest &request, const QStringList &engineIds, bool editableSource = false);
 
     // Fill in (or replace) the card for result.engineId.
     void applyResult(const TranslateResult &result);
@@ -36,6 +41,10 @@ public:
 signals:
     // Emitted when the retry button on a failed card is pressed.
     void retryRequested(const QString &engineId);
+
+    // Emitted when the user edits the (editable) source text and commits it
+    // (Ctrl+Enter or focus-out), asking for a re-translation of the new text.
+    void sourceEdited(const QString &newText);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -53,6 +62,7 @@ private:
 
     QFrame *m_container = nullptr;
     QLabel *m_sourceLabel = nullptr;
+    QPlainTextEdit *m_sourceEdit = nullptr; // editable source (OCR flow)
     QLabel *m_langPairLabel = nullptr;
     QToolButton *m_pinButton = nullptr;
     QToolButton *m_closeButton = nullptr;
