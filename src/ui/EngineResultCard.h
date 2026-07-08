@@ -34,9 +34,15 @@ public:
 signals:
     void retryRequested(const QString &engineId);
 
+protected:
+    // Recompute the body height when the card's width changes: only then is the
+    // final wrap width known, so the height matches the actual number of lines.
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void setBody(const QString &plainText);
     void setDictBody(const DictEntry &dict, const QString &fallbackText);
+    void updateBodyHeight();
 
     QString m_engineId;
     QLabel *m_header = nullptr;
@@ -44,4 +50,6 @@ private:
     QToolButton *m_copyButton = nullptr;
     QToolButton *m_retryButton = nullptr;
     QVBoxLayout *m_layout = nullptr;
+    bool m_pending = true; // showing the skeleton, not a real result
+    int m_maxBodyHeight = 260; // dictionary layouts get a taller cap
 };

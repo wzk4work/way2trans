@@ -72,18 +72,15 @@ PopupWindow::PopupWindow(QWidget *parent)
     root->setContentsMargins(12, 10, 12, 12);
     root->setSpacing(10);
 
-    // --- header: source text (left) + lang badge + pin/close (right) ------
-    auto *headerRow = new QHBoxLayout;
-    headerRow->setSpacing(8);
-    m_sourceLabel = new QLabel(m_container);
-    m_sourceLabel->setObjectName(QStringLiteral("sourceText"));
-    m_sourceLabel->setWordWrap(true);
-    m_sourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    headerRow->addWidget(m_sourceLabel, 1, Qt::AlignTop);
+    // --- title bar: pin/close top-right, then the lang badge under them ---
+    auto *titleRow = new QHBoxLayout;
+    titleRow->setSpacing(2);
+    titleRow->addStretch();
 
     m_langPairLabel = new QLabel(m_container);
     m_langPairLabel->setObjectName(QStringLiteral("langPair"));
-    headerRow->addWidget(m_langPairLabel, 0, Qt::AlignTop);
+    titleRow->addWidget(m_langPairLabel, 0, Qt::AlignVCenter);
+    titleRow->addSpacing(6);
 
     m_pinButton = new QToolButton(m_container);
     m_pinButton->setObjectName(QStringLiteral("iconButton"));
@@ -92,7 +89,7 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_pinButton->setToolTip(tr("Pin (keep open on focus loss)"));
     m_pinButton->setCursor(Qt::PointingHandCursor);
     connect(m_pinButton, &QToolButton::toggled, this, &PopupWindow::setPinned);
-    headerRow->addWidget(m_pinButton, 0, Qt::AlignTop);
+    titleRow->addWidget(m_pinButton, 0, Qt::AlignVCenter);
 
     m_closeButton = new QToolButton(m_container);
     m_closeButton->setObjectName(QStringLiteral("iconButton"));
@@ -100,8 +97,15 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_closeButton->setToolTip(tr("Close (Esc)"));
     m_closeButton->setCursor(Qt::PointingHandCursor);
     connect(m_closeButton, &QToolButton::clicked, this, &PopupWindow::close);
-    headerRow->addWidget(m_closeButton, 0, Qt::AlignTop);
-    root->addLayout(headerRow);
+    titleRow->addWidget(m_closeButton, 0, Qt::AlignVCenter);
+    root->addLayout(titleRow);
+
+    // --- source text: full-width boxed original text ----------------------
+    m_sourceLabel = new QLabel(m_container);
+    m_sourceLabel->setObjectName(QStringLiteral("sourceText"));
+    m_sourceLabel->setWordWrap(true);
+    m_sourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    root->addWidget(m_sourceLabel);
 
     // --- cards container --------------------------------------------------
     m_cardsLayout = new QVBoxLayout;

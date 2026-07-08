@@ -4,6 +4,7 @@
 #include <QClipboard>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QResizeEvent>
 #include <QTextEdit>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -62,6 +63,8 @@ void EngineResultCard::showPending()
 {
     m_copyButton->hide();
     m_retryButton->hide();
+    m_pending = true;
+    m_maxBodyHeight = 260;
     if (m_body) {
         m_body->setPlainText(tr("Translating…"));
         m_body->setProperty("state", QStringLiteral("pending"));
@@ -72,6 +75,7 @@ void EngineResultCard::showPending()
 
 void EngineResultCard::showResult(const TranslateResult &result, bool preferDict)
 {
+    m_pending = false;
     if (!result.ok()) {
         m_copyButton->hide();
         m_retryButton->show();
@@ -91,14 +95,30 @@ void EngineResultCard::showResult(const TranslateResult &result, bool preferDict
     m_body->setProperty("state", QStringLiteral("ok"));
 }
 
-void EngineResultCard::setBody(const QString &plainText)
+void EngineResultCard::resizeEvent(QResizeEvent *event)
 {
-    m_body->setPlainText(plainText);
-    // Let the card grow to fit without an inner scrollbar.
+    QWidget::resizeEvent(event);
+    if (!m_pending)
+        updateBodyHeight();
+}
+
+void EngineResultCard::updateBodyHeight()
+{
+    if (!m_body)
+        return;
+    // viewport()->width() reflects the box padding once the card is laid out,
+    // so wrapping here matches what is actually rendered.
     m_body->document()->setTextWidth(m_body->viewport()->width());
     // + vertical stylesheet padding on the rounded body box.
-    const int h = int(m_body->document()->size().height()) + 12;
-    m_body->setFixedHeight(qBound(28, h, 260));
+    const int h = int(m_body->document()->size().height()) + 14;
+    m_body->setFixedHeight(qBound(30, h, m_maxBodyHeight));
+}
+
+void EngineResultCard::setBody(const QString &plainText)
+{
+    m_maxBodyHeight = 260;
+    m_body->setPlainText(plainText);
+    updateBodyHeight();
 }
 
 void EngineResultCard::setDictBody(const DictEntry &dict, const QString &fallbackText)
@@ -116,8 +136,7 @@ void EngineResultCard::setDictBody(const DictEntry &dict, const QString &fallbac
             html += QStringLiteral("<li>%1</li>").arg(def.toHtmlEscaped());
         html += QStringLiteral("</ul>");
     }
+    m_maxBodyHeight = 320;
     m_body->setHtml(html);
-    m_body->document()->setTextWidth(m_body->viewport()->width());
-    const int h = int(m_body->document()->size().height()) + 12;
-    m_body->setFixedHeight(qBound(28, h, 320));
+    updateBodyHeight();
 }
