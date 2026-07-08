@@ -14,7 +14,9 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
 {
     setObjectName(QStringLiteral("engineCard"));
     m_layout = new QVBoxLayout(this);
-    m_layout->setContentsMargins(10, 8, 10, 8);
+    // The card is just a layout group now; the rounded box is the body itself,
+    // so keep the card flush and let the body sit close to the popup edges.
+    m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->setSpacing(4);
 
     auto *headerRow = new QHBoxLayout;
@@ -44,8 +46,10 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
     m_layout->addLayout(headerRow);
 
     m_body = new QTextEdit(this);
+    m_body->setObjectName(QStringLiteral("resultBody"));
     m_body->setReadOnly(true);
     m_body->setFrameShape(QFrame::NoFrame);
+    m_body->document()->setDocumentMargin(2);
     m_body->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_body->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_body->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
@@ -62,7 +66,7 @@ void EngineResultCard::showPending()
         m_body->setPlainText(tr("Translating…"));
         m_body->setProperty("state", QStringLiteral("pending"));
         // Keep the skeleton compact; it grows to fit once the result arrives.
-        m_body->setFixedHeight(28);
+        m_body->setFixedHeight(32);
     }
 }
 
@@ -92,8 +96,9 @@ void EngineResultCard::setBody(const QString &plainText)
     m_body->setPlainText(plainText);
     // Let the card grow to fit without an inner scrollbar.
     m_body->document()->setTextWidth(m_body->viewport()->width());
-    const int h = int(m_body->document()->size().height()) + 8;
-    m_body->setFixedHeight(qBound(24, h, 260));
+    // + vertical stylesheet padding on the rounded body box.
+    const int h = int(m_body->document()->size().height()) + 12;
+    m_body->setFixedHeight(qBound(28, h, 260));
 }
 
 void EngineResultCard::setDictBody(const DictEntry &dict, const QString &fallbackText)
@@ -113,6 +118,6 @@ void EngineResultCard::setDictBody(const DictEntry &dict, const QString &fallbac
     }
     m_body->setHtml(html);
     m_body->document()->setTextWidth(m_body->viewport()->width());
-    const int h = int(m_body->document()->size().height()) + 8;
-    m_body->setFixedHeight(qBound(24, h, 320));
+    const int h = int(m_body->document()->size().height()) + 12;
+    m_body->setFixedHeight(qBound(28, h, 320));
 }

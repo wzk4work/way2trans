@@ -69,7 +69,7 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_container->setGraphicsEffect(shadow);
 
     auto *root = new QVBoxLayout(m_container);
-    root->setContentsMargins(16, 12, 12, 14);
+    root->setContentsMargins(12, 10, 12, 12);
     root->setSpacing(10);
 
     // --- header: source text (left) + lang badge + pin/close (right) ------
@@ -113,7 +113,14 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "  border: 1px solid palette(mid);"
                                  "  border-radius: 14px;"
                                  "}"
-                                 "#sourceText { font-size: 14px; color: palette(text); }"
+                                 "#sourceText {"
+                                 "  font-size: 14px;"
+                                 "  color: palette(text);"
+                                 "  background: palette(base);"
+                                 "  border: 1px solid palette(midlight);"
+                                 "  border-radius: 8px;"
+                                 "  padding: 6px 8px;"
+                                 "}"
                                  "#langPair {"
                                  "  color: palette(highlight-text);"
                                  "  background: palette(highlight);"
@@ -130,15 +137,19 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "}"
                                  "QToolButton#iconButton:hover { background: palette(midlight); }"
                                  "QToolButton#iconButton:checked { background: palette(midlight); }"
-                                 "#engineCard {"
-                                 "  background: palette(base);"
-                                 "  border: 1px solid palette(midlight);"
-                                 "  border-radius: 10px;"
-                                 "}"
+                                 // The card is a transparent layout group; the body box below is the
+                                 // visible rounded surface, so results aren't double-boxed.
+                                 "#engineCard { background: transparent; }"
                                  "#engineName {"
                                  "  font-weight: 600;"
                                  "  color: palette(highlight);"
                                  "  font-size: 12px;"
+                                 "}"
+                                 "#resultBody {"
+                                 "  background: palette(base);"
+                                 "  border: 1px solid palette(midlight);"
+                                 "  border-radius: 8px;"
+                                 "  padding: 4px 8px;"
                                  "}"
                                  "QToolButton#cardButton {"
                                  "  border: 1px solid palette(mid);"
