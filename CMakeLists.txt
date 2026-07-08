@@ -43,9 +43,25 @@ find_package(PkgConfig QUIET)
 
 set(WAY2TRANS_HAVE_LAYERSHELL ${LayerShellQtInterface_FOUND})
 
+# X11 global hotkeys (XGrabKey) need xcb + xcb-keysyms. Both are optional: when
+# xcb-keysyms is absent the X11HotkeyBackend is not compiled, the build still
+# succeeds, and the app falls back to the Null hotkey backend at runtime
+# (DESIGN.md §4.2, §11). Probed here so the feature summary stays honest and the
+# gate is visible to every subdirectory.
+set(WAY2TRANS_HAVE_XCB_KEYSYMS OFF)
+if(PkgConfig_FOUND)
+    pkg_check_modules(XCB IMPORTED_TARGET QUIET xcb)
+    pkg_check_modules(XCB_KEYSYMS IMPORTED_TARGET QUIET xcb-keysyms)
+    if(XCB_FOUND AND XCB_KEYSYMS_FOUND)
+        set(WAY2TRANS_HAVE_XCB_KEYSYMS ON)
+    endif()
+endif()
+
 include(FeatureSummary)
 add_feature_info(LayerShellQt WAY2TRANS_HAVE_LAYERSHELL
     "Wayland layer-shell popup/overlay placement (optional, M2)")
+add_feature_info(X11Hotkeys WAY2TRANS_HAVE_XCB_KEYSYMS
+    "X11 global hotkeys via XGrabKey (xcb + xcb-keysyms; Null fallback otherwise)")
 
 # --- Subdirectories --------------------------------------------------------
 add_subdirectory(src)
