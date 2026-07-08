@@ -1,5 +1,6 @@
 #include "PopupWindow.h"
 
+#include "CardStyle.h"
 #include "EngineResultCard.h"
 
 #include <QApplication>
@@ -169,29 +170,8 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "  font-size: 13px;"
                                  "}"
                                  "QToolButton#iconButton:hover { background: palette(midlight); }"
-                                 "QToolButton#iconButton:checked { background: palette(midlight); }"
-                                 // The card is a transparent layout group; the body box below is the
-                                 // visible rounded surface, so results aren't double-boxed.
-                                 "#engineCard { background: transparent; }"
-                                 "#engineName {"
-                                 "  font-weight: 600;"
-                                 "  color: palette(highlight);"
-                                 "  font-size: 12px;"
-                                 "}"
-                                 "#resultBox {"
-                                 "  background: palette(base);"
-                                 "  border: 1px solid palette(midlight);"
-                                 "  border-radius: 8px;"
-                                 "}"
-                                 "#resultBody { background: transparent; border: none; }"
-                                 "QToolButton#cardButton {"
-                                 "  border: 1px solid palette(mid);"
-                                 "  border-radius: 5px;"
-                                 "  padding: 1px 7px;"
-                                 "  font-size: 11px;"
-                                 "  color: palette(text);"
-                                 "}"
-                                 "QToolButton#cardButton:hover { background: palette(midlight); }"));
+                                 "QToolButton#iconButton:checked { background: palette(midlight); }")
+        + w2t::ui::cardStyleSheet());
 }
 
 void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds, bool editableSource)

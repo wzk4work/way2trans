@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "CardStyle.h"
 #include "EngineResultCard.h"
 #include "HistoryModel.h"
 #include "LibraryService.h"
@@ -159,6 +160,38 @@ MainWindow::MainWindow(QWidget *parent)
         connect(statusButton, &QPushButton::clicked, this, &MainWindow::cycleVocabStatus);
         layout->addWidget(statusButton);
     }
+
+    // Rounded, popup-consistent styling for inputs, lists and buttons; the
+    // engine result cards reuse the exact popup card style (CardStyle.h).
+    setStyleSheet(
+        QStringLiteral("QPlainTextEdit, QLineEdit, QTextBrowser, QListView {"
+                       "  background: palette(base);"
+                       "  border: 1px solid palette(midlight);"
+                       "  border-radius: 8px;"
+                       "  padding: 6px 8px;"
+                       "}"
+                       "QComboBox {"
+                       "  background: palette(base);"
+                       "  border: 1px solid palette(midlight);"
+                       "  border-radius: 8px;"
+                       "  padding: 4px 8px;"
+                       "}"
+                       "QListView::item { padding: 5px; border-radius: 6px; }"
+                       "QListView::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+                       "QScrollArea { border: none; background: transparent; }"
+                       "QScrollArea > QWidget > QWidget { background: transparent; }"
+                       "QTabWidget::pane { border: 1px solid palette(midlight); border-radius: 8px; }"
+                       "QPushButton {"
+                       "  background: palette(button);"
+                       "  border: 1px solid palette(mid);"
+                       "  border-radius: 8px;"
+                       "  padding: 6px 14px;"
+                       "}"
+                       "QPushButton:hover { background: palette(midlight); }"
+                       "QPushButton:pressed { background: palette(mid); }"
+                       "QToolButton { border: none; border-radius: 6px; padding: 3px 8px; }"
+                       "QToolButton:hover { background: palette(midlight); }")
+        + w2t::ui::cardStyleSheet());
 }
 
 void MainWindow::setServices(TranslateService *translate, LibraryService *library)
