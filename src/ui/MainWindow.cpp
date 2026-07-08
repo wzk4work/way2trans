@@ -23,6 +23,7 @@
 #include <QScrollArea>
 #include <QTabWidget>
 #include <QTextBrowser>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace {
@@ -67,6 +68,17 @@ MainWindow::MainWindow(QWidget *parent)
     tabs->addTab(translateTab, tr("Translate"));
     tabs->addTab(historyTab, tr("History"));
     tabs->addTab(vocabTab, tr("Vocabulary"));
+
+    // Settings entry point in the tab-bar corner. It opens the shared modal
+    // dialog (5 pages) rather than being a nested tab, so we don't stack a
+    // second tab bar inside a tab.
+    auto *settingsButton = new QToolButton(tabs);
+    settingsButton->setText(QStringLiteral("⚙ ") + tr("Settings…"));
+    settingsButton->setAutoRaise(true);
+    settingsButton->setCursor(Qt::PointingHandCursor);
+    settingsButton->setToolTip(tr("Open settings"));
+    connect(settingsButton, &QToolButton::clicked, this, &MainWindow::settingsRequested);
+    tabs->setCornerWidget(settingsButton, Qt::TopRightCorner);
 
     // Lay out into the placeholder widgets created above.
     m_input = nullptr;

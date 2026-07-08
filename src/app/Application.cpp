@@ -193,6 +193,7 @@ int Application::runAsPrimary(const CliAction &initialAction)
         m_currentTrigger = QStringLiteral("input");
         m_translateService->translate(text);
     });
+    connect(m_mainWindow.get(), &MainWindow::settingsRequested, this, &Application::openSettings);
 
     m_tray = std::make_unique<TrayIcon>(this);
     if (m_tray->isAvailable()) {

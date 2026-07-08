@@ -43,6 +43,11 @@ signals:
     // so history records the right source (DESIGN.md §8.2).
     void inputTranslationRequested(const QString &text);
 
+    // The user asked to open Settings from the window. The app opens the shared
+    // SettingsDialog (same path as the tray), so ui/ never owns engine/platform
+    // state or the connectivity-test wiring.
+    void settingsRequested();
+
 private:
     void buildTranslateTab();
     void buildHistoryTab();
