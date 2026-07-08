@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QApplication>
+#include <QList>
+#include <QRect>
 #include <QString>
 #include <memory>
 
@@ -11,9 +13,13 @@ class PopupWindow;
 class PopupPlacement;
 class SelectionSource;
 class HotkeyBackend;
+class ScreenshotBackend;
 class TranslateService;
+class OcrService;
+class CaptureOverlay;
 struct TranslateRequest;
 struct TranslateResult;
+struct ScreenImage;
 
 // Result of parsing the command line into a single deferred action.
 struct CliAction {
@@ -21,12 +27,14 @@ struct CliAction {
         RunDaemon, // no action verb: start (or reuse) the resident instance
         Trigger, // `trigger <selection|capture|clipboard|show-main>`
         TranslateText, // `--text "..."`
+        OcrTest, // `--ocr-test <image>`: OCR+translate a file, print, exit
         Invalid, // parse error / unknown verb
     };
 
     Kind kind = Kind::RunDaemon;
     QString trigger; // for Kind::Trigger
     QString text; // for Kind::TranslateText
+    QString imagePath; // for Kind::OcrTest
     QString errorText; // for Kind::Invalid
 };
 
@@ -58,6 +66,12 @@ public:
     // Returns the event loop exit code.
     int runAsPrimary(const CliAction &initialAction);
 
+    // Headless verification entry (DESIGN.md §13 M3 acceptance): OCR the given
+    // image via OcrService, translate the recognised text via TranslateService,
+    // print "OCR:"/"TR:" lines to stdout and return an exit code. Runs its own
+    // short event loop; does not need the daemon/tray. Returns 0 on success.
+    int runOcrTest(const QString &imagePath);
+
     // Forward an action to an already-running instance over D-Bus.
     // Returns true on success. Used when the bus name is already taken.
     static bool forwardToRunningInstance(const CliAction &action);
@@ -85,6 +99,13 @@ private:
     // Show the result popup near the cursor and kick off a translation.
     void translateSelectionText(const QString &text);
 
+    // Screenshot-translation pipeline (DESIGN.md §3.2): capture -> overlay ->
+    // OCR -> translate -> popup beside the selection.
+    void onScreensCaptured(const QList<ScreenImage> &screens);
+    void onRegionSelected(const QImage &cropped, const QRect &screenRect);
+    void startOcrAndTranslate(const QImage &image, const QRect &anchorRect);
+    void closeOverlays();
+
     // Parented to this Application (Qt manages its lifetime); non-null once
     // this process is the primary instance.
     DBusService *m_dbusAdaptor = nullptr;
@@ -98,4 +119,11 @@ private:
     HotkeyBackend *m_hotkeyBackend = nullptr;
     std::unique_ptr<PopupPlacement> m_popupPlacement;
     std::unique_ptr<PopupWindow> m_popup;
+
+    // M3 screenshot-translation pipeline.
+    ScreenshotBackend *m_screenshotBackend = nullptr; // owned via parent = this
+    OcrService *m_ocrService = nullptr; // owned via parent = this
+    QList<CaptureOverlay *> m_overlays; // live overlays (WA_DeleteOnClose)
+    QRect m_captureAnchor; // selection rect for popup placement
+    bool m_captureInProgress = false;
 };

@@ -54,3 +54,26 @@ add_test(NAME tst_platformfactory COMMAND tst_platformfactory)
 # and QGuiApplication::platformName() is neither xcb nor wayland (isolates overrides).
 set_tests_properties(tst_platformfactory PROPERTIES
     ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-factory;QT_QPA_PLATFORM=offscreen")
+
+# --- platform: screenshot backend selection + X11 grab (M3) -----------------
+add_executable(tst_screenshotbackend platform/tst_screenshotbackend.cpp)
+target_link_libraries(tst_screenshotbackend PRIVATE Qt6::Test way2trans_platform way2trans_core)
+add_test(NAME tst_screenshotbackend COMMAND tst_screenshotbackend)
+set_tests_properties(tst_screenshotbackend PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-shot;QT_QPA_PLATFORM=offscreen")
+
+# --- ocr: real Tesseract recognition + language/probe logic (M3) ------------
+add_executable(tst_tesseractocr ocr/tst_tesseractocr.cpp)
+target_link_libraries(tst_tesseractocr PRIVATE Qt6::Test way2trans_ocr way2trans_core)
+add_test(NAME tst_tesseractocr COMMAND tst_tesseractocr)
+# Real display so QPainter renders text the same way it does in production; the
+# recognition cases self-skip if a needed language pack/font is missing.
+set_tests_properties(tst_tesseractocr PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-ocr;QT_QPA_PLATFORM=offscreen")
+
+# --- ui: CaptureOverlay smoke test (M3) -------------------------------------
+add_executable(tst_captureoverlay ui/tst_captureoverlay.cpp)
+target_link_libraries(tst_captureoverlay PRIVATE Qt6::Test way2trans_ui way2trans_core)
+add_test(NAME tst_captureoverlay COMMAND tst_captureoverlay)
+set_tests_properties(tst_captureoverlay PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

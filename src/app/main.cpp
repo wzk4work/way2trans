@@ -29,6 +29,13 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    // Headless OCR+translate verification entry (DESIGN.md §13 M3): runs
+    // standalone with its own local event loop, never touching the daemon /
+    // single-instance handshake or the tray.
+    if (action.kind == CliAction::Kind::OcrTest) {
+        return app.runOcrTest(action.imagePath);
+    }
+
     // Single-instance handshake (DESIGN.md §9): try to own the bus name
     // io.github.way2trans. If we get it, we are the primary instance and run
     // the event loop. If not, an instance is already running, so forward the

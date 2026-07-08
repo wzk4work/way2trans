@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QString>
 
 class Application;
 class QSystemTrayIcon;
@@ -24,6 +25,10 @@ public:
 
     // Light "no selected text" hint (DESIGN.md §3.1: silent or gentle prompt).
     void notifyNoSelection();
+
+    // Surface an OCR-unavailable / failure hint for screenshot translation
+    // (DESIGN.md §3.2, §6): shown when no OCR backend is usable or all failed.
+    void notifyOcrUnavailable(const QString &hint);
 
 private:
     Application *m_app;

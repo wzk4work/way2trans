@@ -76,3 +76,11 @@ void TrayIcon::notifyNoSelection()
             QStringLiteral("way2trans"), tr("No selected text detected"), QSystemTrayIcon::Information, 1500);
     }
 }
+
+void TrayIcon::notifyOcrUnavailable(const QString &hint)
+{
+    if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
+        const QString message = hint.isEmpty() ? tr("Screenshot translation is unavailable") : hint;
+        m_tray->showMessage(QStringLiteral("way2trans"), message, QSystemTrayIcon::Warning, 4000);
+    }
+}
