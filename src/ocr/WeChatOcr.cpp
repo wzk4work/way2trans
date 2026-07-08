@@ -31,6 +31,10 @@ WeChatOcr::WeChatOcr(QObject *parent)
 WeChatOcr::~WeChatOcr()
 {
     if (m_helper) {
+        // Detach first: otherwise killing the helper fires finished/errorOccurred
+        // synchronously inside this destructor, and those slots emit signals and
+        // touch half-destroyed state (QProcess::Crashed + a null-target connect).
+        m_helper->disconnect(this);
         m_helper->kill();
         m_helper->waitForFinished(500);
     }
@@ -51,16 +55,15 @@ QString WeChatOcr::displayName() const
 QString WeChatOcr::probeInstallPath()
 {
     // 1. Explicit user override in Settings ([ocr] wechatPath).
-    const QString configured
-        = Settings::instance().value(QStringLiteral("ocr/wechatPath")).toString();
+    const QString configured = Settings::instance().value(QStringLiteral("ocr/wechatPath")).toString();
     if (!configured.isEmpty() && looksLikeWeChatOcrDir(configured))
         return configured;
 
     // 2. Common native / packaged install roots. libmmmojo.so, wxocr and
     //    ocr_model sit at the WeChat root on native 4.x installs.
     QStringList roots;
-    roots << QStringLiteral("/opt/wechat") << QStringLiteral("/opt/wechat/wechat")
-          << QStringLiteral("/usr/lib/wechat") << QStringLiteral("/usr/share/wechat");
+    roots << QStringLiteral("/opt/wechat") << QStringLiteral("/opt/wechat/wechat") << QStringLiteral("/usr/lib/wechat")
+          << QStringLiteral("/usr/share/wechat");
     const QString home = QDir::homePath();
     roots << home + QStringLiteral("/.local/share/wechat");
     // Flatpak: com.tencent.WeChat exposes its files under the app tree.
@@ -83,7 +86,8 @@ QString WeChatOcr::helperExecutablePath()
 {
     // Prefer the helper installed next to the running binary (packaging places
     // way2trans and way2trans-ocr-helper in the same bindir).
-    const QString beside = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("way2trans-ocr-helper"));
+    const QString beside
+        = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("way2trans-ocr-helper"));
     if (QFile::exists(beside))
         return beside;
     const QString onPath = QStandardPaths::findExecutable(QStringLiteral("way2trans-ocr-helper"));
@@ -227,8 +231,8 @@ void WeChatOcr::recognize(const QImage &image, const QStringList &langHints)
     // Write the image to a temp PNG the helper reads by path (the protocol
     // passes a path, not pixels, DESIGN.md §6.1).
     const QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    const QString path = QDir(tmpDir).filePath(
-        QStringLiteral("way2trans-wechat-%1.png").arg(QCoreApplication::applicationPid()));
+    const QString path
+        = QDir(tmpDir).filePath(QStringLiteral("way2trans-wechat-%1.png").arg(QCoreApplication::applicationPid()));
     if (!image.save(path, "PNG")) {
         emit failed(tr("Could not stage the image for WeChat OCR"));
         return;
