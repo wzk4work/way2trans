@@ -3,6 +3,8 @@
 # engines -> core interface. M1 adds platform/ and engines/ alongside the M0
 # core/ui/app; ocr/ arrives in M3.
 add_subdirectory(engines)
+add_subdirectory(ocr)
+add_subdirectory(ocr-helper)
 add_subdirectory(core)
 add_subdirectory(platform)
 add_subdirectory(ui)

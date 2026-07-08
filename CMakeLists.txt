@@ -74,6 +74,19 @@ if(PkgConfig_FOUND)
     endif()
 endif()
 
+# Tesseract OCR backend (DESIGN.md §6). Needs libtesseract + leptonica via
+# pkg-config. Optional: when absent the TesseractOcr backend is not compiled,
+# the build still succeeds, and OcrService reports OCR unavailable at runtime
+# (screenshot translation then degrades with a hint). Never a hard failure.
+set(WAY2TRANS_HAVE_TESSERACT OFF)
+if(PkgConfig_FOUND)
+    pkg_check_modules(TESSERACT IMPORTED_TARGET QUIET tesseract)
+    pkg_check_modules(LEPTONICA IMPORTED_TARGET QUIET lept)
+    if(TESSERACT_FOUND AND LEPTONICA_FOUND)
+        set(WAY2TRANS_HAVE_TESSERACT ON)
+    endif()
+endif()
+
 include(FeatureSummary)
 add_feature_info(LayerShellQt WAY2TRANS_HAVE_LAYERSHELL
     "Wayland layer-shell popup/overlay placement (optional, M2)")
@@ -81,6 +94,8 @@ add_feature_info(X11Hotkeys WAY2TRANS_HAVE_XCB_KEYSYMS
     "X11 global hotkeys via XGrabKey (xcb + xcb-keysyms; Null fallback otherwise)")
 add_feature_info(Translations WAY2TRANS_HAVE_TRANSLATIONS
     "Embedded UI translations via Qt Linguist (English source otherwise)")
+add_feature_info(TesseractOCR WAY2TRANS_HAVE_TESSERACT
+    "Tesseract OCR backend for screenshot translation (optional, M3)")
 
 # --- Subdirectories --------------------------------------------------------
 add_subdirectory(src)

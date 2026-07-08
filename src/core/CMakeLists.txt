@@ -12,6 +12,8 @@ add_library(way2trans_core STATIC
     TextCleaner.h
     TranslateService.cpp
     TranslateService.h
+    OcrService.cpp
+    OcrService.h
 )
 
 target_include_directories(way2trans_core
@@ -22,8 +24,11 @@ target_include_directories(way2trans_core
 target_link_libraries(way2trans_core
     PUBLIC
         Qt6::Core
+        Qt6::Gui
         Qt6::Network
         way2trans_engines
+        # OcrService picks and drives the OCR backends (DESIGN.md §6).
+        way2trans_ocr
 )
 
 # core/ deliberately links no UI module.
