@@ -15,6 +15,7 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -58,11 +59,21 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     auto *tabs = new QTabWidget(this);
-    tabs->addTab(buildGeneralTab(), tr("General"));
-    tabs->addTab(buildHotkeysTab(), tr("Hotkeys"));
-    tabs->addTab(buildEnginesTab(), tr("Engines"));
-    tabs->addTab(buildOcrTab(), tr("OCR"));
-    tabs->addTab(buildPlatformTab(), tr("Platform"));
+    // Wrap each page in a scroll area so a tall/wide page (e.g. the engines
+    // list) scrolls instead of forcing a huge dialog minimum — otherwise the
+    // window can't be resized smaller than the content.
+    auto scrolled = [this](QWidget *page) -> QWidget * {
+        auto *area = new QScrollArea(this);
+        area->setWidgetResizable(true);
+        area->setFrameShape(QFrame::NoFrame);
+        area->setWidget(page);
+        return area;
+    };
+    tabs->addTab(scrolled(buildGeneralTab()), tr("General"));
+    tabs->addTab(scrolled(buildHotkeysTab()), tr("Hotkeys"));
+    tabs->addTab(scrolled(buildEnginesTab()), tr("Engines"));
+    tabs->addTab(scrolled(buildOcrTab()), tr("OCR"));
+    tabs->addTab(scrolled(buildPlatformTab()), tr("Platform"));
     layout->addWidget(tabs);
 
     auto *buttonRow = new QHBoxLayout;
@@ -147,9 +158,12 @@ QWidget *SettingsDialog::buildHotkeysTab()
     // grabbed, bind these CLI commands in the compositor/system settings.
     auto *guidance = new QGroupBox(tr("If shortcuts don't work"), tab);
     auto *gl = new QVBoxLayout(guidance);
-    gl->addWidget(new QLabel(tr("On some Wayland setups way2trans can't grab global keys. Bind these commands in your "
-                                "compositor or system shortcut settings instead:"),
-        guidance));
+    auto *guidanceLabel
+        = new QLabel(tr("On some Wayland setups way2trans can't grab global keys. Bind these commands in your "
+                        "compositor or system shortcut settings instead:"),
+            guidance);
+    guidanceLabel->setWordWrap(true);
+    gl->addWidget(guidanceLabel);
     auto addCmd = [gl, guidance](const QString &cmd) {
         auto *row = new QHBoxLayout;
         auto *field = new QLineEdit(cmd, guidance);
@@ -297,7 +311,9 @@ QWidget *SettingsDialog::buildPlatformTab()
     addOverride(tr("Popup:"), QStringLiteral("popup"),
         {QStringLiteral("x11"), QStringLiteral("layer-shell"), QStringLiteral("plain")});
     layout->addWidget(overrides);
-    layout->addWidget(new QLabel(tr("Overrides take effect on the next launch."), tab));
+    auto *overrideNote = new QLabel(tr("Overrides take effect on the next launch."), tab);
+    overrideNote->setWordWrap(true);
+    layout->addWidget(overrideNote);
     layout->addStretch();
     return tab;
 }
