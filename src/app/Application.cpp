@@ -13,8 +13,11 @@
 #include "PopupWindow.h"
 #include "SelectionSource.h"
 #include "Settings.h"
+#include "SettingsDialog.h"
 #include "TranslateService.h"
 #include "TrayIcon.h"
+#include "engines/EngineRegistry.h"
+#include "engines/TranslateEngine.h"
 #include "engines/TranslateTypes.h"
 #include "screenshot/ScreenshotBackend.h"
 
@@ -182,6 +185,14 @@ int Application::runAsPrimary(const CliAction &initialAction)
     m_mainWindow = std::make_unique<MainWindow>();
 
     setupServices();
+
+    // The main window's tabs consume the shared translate + library services
+    // (DESIGN.md §7/§8). Injected after setupServices() built them.
+    m_mainWindow->setServices(m_translateService, m_libraryService);
+    connect(m_mainWindow.get(), &MainWindow::inputTranslationRequested, this, [this](const QString &text) {
+        m_currentTrigger = QStringLiteral("input");
+        m_translateService->translate(text);
+    });
 
     m_tray = std::make_unique<TrayIcon>(this);
     if (m_tray->isAvailable()) {
@@ -631,8 +642,42 @@ void Application::showMainWindow()
 
 void Application::openSettings()
 {
-    // M0: settings dialog is a later milestone.
-    qCInfo(w2tApp) << "openSettings (M0 stub)";
+    qCInfo(w2tApp) << "openSettings";
+    SettingsDialog dialog(m_mainWindow ? m_mainWindow.get() : nullptr);
+
+    // Connectivity test: run a one-shot "hello" through a throwaway engine
+    // instance so the dialog can report reachability without touching the live
+    // engine set (app owns the engine subsystem, so ui/ never links engines/).
+    dialog.setEngineTester([this](const QString &engineId, std::function<void(bool, QString)> done) {
+        auto *engine = EngineRegistry::create(engineId, m_translateService->networkManager(), this);
+        if (!engine) {
+            done(false, tr("Unknown engine"));
+            return;
+        }
+        // Own the engine only for the duration of this test.
+        auto *guard = new QTimer(engine);
+        guard->setSingleShot(true);
+        connect(engine, &TranslateEngine::resultReady, this, [engine, done](const TranslateResult &r) {
+            done(r.ok(), r.ok() ? r.translatedText.left(40) : r.error);
+            engine->deleteLater();
+        });
+        connect(guard, &QTimer::timeout, this, [engine, done]() {
+            done(false, tr("Timed out"));
+            engine->deleteLater();
+        });
+        guard->start(10000);
+        TranslateRequest req;
+        req.text = QStringLiteral("hello");
+        req.sourceLang = QStringLiteral("auto");
+        req.targetLang = QStringLiteral("zh-CN");
+        engine->translate(req);
+    });
+
+    dialog.exec();
+
+    // Apply engine enable/disable/order changes made in the dialog.
+    if (m_translateService)
+        m_translateService->reloadEngines();
 }
 
 QString Application::translate(const QString &text)

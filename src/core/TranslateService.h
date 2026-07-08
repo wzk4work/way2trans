@@ -45,6 +45,10 @@ public:
     // One-period rule: Chinese source -> English, otherwise -> Chinese.
     static QString targetLangFor(const QString &sourceLang);
 
+    // The shared network manager (AGENTS.md: one manager for all engine traffic).
+    // Exposed so a one-shot connectivity-test engine can reuse it.
+    QNetworkAccessManager *networkManager() const { return m_nam; }
+
 signals:
     // Emitted once per translate() call with the fully-resolved request (after
     // cleaning + language detection) so the UI can render the header/skeleton.
