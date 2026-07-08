@@ -180,7 +180,10 @@ MainWindow::MainWindow(QWidget *parent)
                        "QListView::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
                        "QScrollArea { border: none; background: transparent; }"
                        "QScrollArea > QWidget > QWidget { background: transparent; }"
-                       "QTabWidget::pane { border: 1px solid palette(midlight); border-radius: 8px; }"
+                       // No rounded pane border: it sits flush to the square window
+                       // corners and the mismatch shows. The inner widgets carry the
+                       // rounding instead.
+                       "QTabWidget::pane { border: none; }"
                        "QPushButton {"
                        "  background: palette(button);"
                        "  border: 1px solid palette(mid);"
