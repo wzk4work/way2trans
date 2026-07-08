@@ -20,10 +20,21 @@ add_library(way2trans_platform STATIC
     PlainPlacement.h
     PlatformFactory.cpp
     PlatformFactory.h
+    # Screenshot backends (DESIGN.md §4.3). X11 grabWindow + Wayland portal +
+    # grim fallback. All three compile everywhere (portal/grim just probe/spawn
+    # at runtime), so there is no feature gate here.
+    screenshot/ScreenshotBackend.h
+    screenshot/X11ScreenshotBackend.cpp
+    screenshot/X11ScreenshotBackend.h
+    screenshot/PortalScreenshotBackend.cpp
+    screenshot/PortalScreenshotBackend.h
+    screenshot/GrimScreenshotBackend.cpp
+    screenshot/GrimScreenshotBackend.h
 )
 
 target_include_directories(way2trans_platform
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+           ${CMAKE_CURRENT_SOURCE_DIR}/screenshot
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../core
 )
 

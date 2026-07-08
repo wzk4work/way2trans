@@ -8,6 +8,7 @@
 class SelectionSource;
 class HotkeyBackend;
 class PopupPlacement;
+class ScreenshotBackend;
 
 // Chooses the concrete platform backends for this session (DESIGN.md §2.1, §4).
 //
@@ -32,6 +33,11 @@ public:
 
     // Create the popup placement strategy for this session.
     static std::unique_ptr<PopupPlacement> createPopupPlacement();
+
+    // Create the screenshot backend for this session (DESIGN.md §4.3): X11 uses
+    // QScreen::grabWindow; Wayland prefers the Screenshot portal and falls back
+    // to the grim CLI. parent owns the result.
+    static ScreenshotBackend *createScreenshotBackend(QObject *parent);
 
     // Log a one-line summary of the detected session (platform name, overrides).
     static void logProbeSummary();

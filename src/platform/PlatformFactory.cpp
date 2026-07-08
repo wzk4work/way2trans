@@ -8,6 +8,9 @@
 #include "WlSelectionSource.h"
 #include "X11CursorPlacement.h"
 #include "X11SelectionSource.h"
+#include "screenshot/GrimScreenshotBackend.h"
+#include "screenshot/PortalScreenshotBackend.h"
+#include "screenshot/X11ScreenshotBackend.h"
 
 #ifdef WAY2TRANS_HAVE_XCB_KEYSYMS
 #include "X11HotkeyBackend.h"
@@ -64,7 +67,9 @@ void PlatformFactory::logProbeSummary()
 #else
                         << "layer-shell=absent"
 #endif
-                        << "wl-paste=" << (WlSelectionSource::isWlPasteAvailable() ? "yes" : "no");
+                        << "wl-paste=" << (WlSelectionSource::isWlPasteAvailable() ? "yes" : "no")
+                        << "screenshot-portal=" << (PortalScreenshotBackend::isPortalAvailable() ? "yes" : "no")
+                        << "grim=" << (GrimScreenshotBackend::isGrimAvailable() ? "yes" : "no");
 }
 
 SelectionSource *PlatformFactory::createSelectionSource(QObject *parent)
@@ -180,4 +185,47 @@ std::unique_ptr<PopupPlacement> PlatformFactory::createPopupPlacement()
 
     qCInfo(w2tPlatform) << "popup placement: plain (fallback)";
     return std::make_unique<PlainPlacement>();
+}
+
+ScreenshotBackend *PlatformFactory::createScreenshotBackend(QObject *parent)
+{
+    const QString override = platformOverride(QStringLiteral("screenshot"));
+
+    // Explicit overrides win (troubleshooting, DESIGN.md §2.1 rule 5).
+    if (override == QLatin1String("x11")) {
+        qCInfo(w2tPlatform) << "screenshot backend: X11 grabWindow [override]";
+        return new X11ScreenshotBackend(parent);
+    }
+    if (override == QLatin1String("portal")) {
+        qCInfo(w2tPlatform) << "screenshot backend: portal [override]";
+        return new PortalScreenshotBackend(parent);
+    }
+    if (override == QLatin1String("grim")) {
+        qCInfo(w2tPlatform) << "screenshot backend: grim [override]";
+        return new GrimScreenshotBackend(parent);
+    }
+
+    if (override.isEmpty() && isX11()) {
+        qCInfo(w2tPlatform) << "screenshot backend: X11 grabWindow";
+        return new X11ScreenshotBackend(parent);
+    }
+
+    // Wayland: prefer the Screenshot portal; fall back to grim on wlroots.
+    if (override.isEmpty() && isWayland()) {
+        if (PortalScreenshotBackend::isPortalAvailable()) {
+            qCInfo(w2tPlatform) << "screenshot backend: portal (Screenshot)";
+            return new PortalScreenshotBackend(parent);
+        }
+        if (GrimScreenshotBackend::isGrimAvailable()) {
+            qCInfo(w2tPlatform) << "screenshot backend: grim (portal unavailable)";
+            return new GrimScreenshotBackend(parent);
+        }
+        qCWarning(w2tPlatform) << "screenshot backend: neither portal nor grim available on Wayland; "
+                                  "falling back to portal (will report failure on use)";
+        return new PortalScreenshotBackend(parent);
+    }
+
+    qCWarning(w2tPlatform) << "screenshot backend: no clear match (QPA" << QGuiApplication::platformName()
+                           << ") - defaulting to X11 grabWindow";
+    return new X11ScreenshotBackend(parent);
 }
