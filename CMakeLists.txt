@@ -55,10 +55,10 @@ endif()
 # --- Optional dependencies (feature-gated, never hard-fail) ----------------
 # Platform backends (M1+) will grow here; probing now keeps the feature summary
 # honest and lets a minimal environment still build the X11-capable core.
-find_package(LayerShellQtInterface QUIET)   # Wayland popup/overlay placement (M2)
+find_package(LayerShellQt QUIET)   # Wayland popup/overlay placement (M2); target LayerShellQt::Interface
 find_package(PkgConfig QUIET)
 
-set(WAY2TRANS_HAVE_LAYERSHELL ${LayerShellQtInterface_FOUND})
+set(WAY2TRANS_HAVE_LAYERSHELL ${LayerShellQt_FOUND})
 
 # X11 global hotkeys (XGrabKey) need xcb + xcb-keysyms. Both are optional: when
 # xcb-keysyms is absent the X11HotkeyBackend is not compiled, the build still
