@@ -29,8 +29,8 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
 
     m_copyButton = new QToolButton(this);
     m_copyButton->setObjectName(QStringLiteral("cardButton"));
-    m_copyButton->setText(tr("Copy"));
-    m_copyButton->setToolTip(tr("Copy result"));
+    m_copyButton->setText(tr("复制"));
+    m_copyButton->setToolTip(tr("复制翻译结果"));
     m_copyButton->setCursor(Qt::PointingHandCursor);
     m_copyButton->hide();
     connect(m_copyButton, &QToolButton::clicked, this,
@@ -39,7 +39,7 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
 
     m_retryButton = new QToolButton(this);
     m_retryButton->setObjectName(QStringLiteral("cardButton"));
-    m_retryButton->setText(tr("Retry"));
+    m_retryButton->setText(tr("重试"));
     m_retryButton->setCursor(Qt::PointingHandCursor);
     m_retryButton->hide();
     connect(m_retryButton, &QToolButton::clicked, this, [this]() { emit retryRequested(m_engineId); });

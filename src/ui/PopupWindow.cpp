@@ -157,8 +157,9 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "#resultBody { background: transparent; border: none; }"
                                  "QToolButton#cardButton {"
                                  "  border: 1px solid palette(mid);"
-                                 "  border-radius: 6px;"
-                                 "  padding: 2px 10px;"
+                                 "  border-radius: 5px;"
+                                 "  padding: 1px 7px;"
+                                 "  font-size: 11px;"
                                  "  color: palette(text);"
                                  "}"
                                  "QToolButton#cardButton:hover { background: palette(midlight); }"));
