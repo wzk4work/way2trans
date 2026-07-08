@@ -72,6 +72,12 @@ private:
     QPlainTextEdit *m_input = nullptr;
     QVBoxLayout *m_cardsLayout = nullptr;
     QHash<QString, EngineResultCard *> m_cards;
+    // The TranslateService is shared with the selection/screenshot flows. These
+    // flags let the tab render only translations it started itself, ignoring
+    // results from popup-driven requests. Set just before we dispatch; latched
+    // in onRequestStarted (which fires synchronously from translate()).
+    bool m_ownRequestPending = false;
+    bool m_showingOwnRequest = false;
 
     // History tab.
     HistoryModel *m_historyModel = nullptr;

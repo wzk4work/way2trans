@@ -243,13 +243,23 @@ void MainWindow::runTranslation()
     const QString text = m_input->toPlainText().trimmed();
     if (text.isEmpty())
         return;
-    // Route through the app so the request is tagged as an "input" translation.
+    // Mark the next request as ours, then route through the app so it is tagged
+    // as an "input" translation. requestStarted fires synchronously from
+    // translate(), so the flag is still set when onRequestStarted latches it.
+    m_ownRequestPending = true;
     emit inputTranslationRequested(text);
 }
 
 void MainWindow::onRequestStarted(const TranslateRequest &request, const QStringList &engineIds)
 {
     Q_UNUSED(request);
+    // The service is shared: only render requests this window started, so a
+    // selection/screenshot translation doesn't hijack the translate tab.
+    m_showingOwnRequest = m_ownRequestPending;
+    m_ownRequestPending = false;
+    if (!m_showingOwnRequest)
+        return;
+
     // Rebuild the card set for this request.
     for (EngineResultCard *card : std::as_const(m_cards))
         card->deleteLater();
@@ -267,6 +277,8 @@ void MainWindow::onRequestStarted(const TranslateRequest &request, const QString
 
 void MainWindow::onResultReady(const TranslateResult &result)
 {
+    if (!m_showingOwnRequest)
+        return;
     auto it = m_cards.constFind(result.engineId);
     if (it != m_cards.constEnd())
         it.value()->showResult(result, /*preferDict=*/false);
@@ -274,6 +286,8 @@ void MainWindow::onResultReady(const TranslateResult &result)
 
 void MainWindow::onPartialResult(const QString &engineId, const QString &delta)
 {
+    if (!m_showingOwnRequest)
+        return;
     auto it = m_cards.constFind(engineId);
     if (it != m_cards.constEnd())
         it.value()->appendStreamDelta(delta);
