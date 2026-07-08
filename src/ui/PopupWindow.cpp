@@ -24,6 +24,10 @@ QString engineDisplayName(const QString &id)
         return QStringLiteral("Google");
     if (id == QLatin1String("bing"))
         return QStringLiteral("Bing");
+    if (id == QLatin1String("deepl"))
+        return QStringLiteral("DeepL");
+    if (id == QLatin1String("llm"))
+        return QStringLiteral("LLM");
     return id;
 }
 

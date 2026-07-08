@@ -1,7 +1,9 @@
 #include "EngineRegistry.h"
 
 #include "BingWebEngine.h"
+#include "DeepLEngine.h"
 #include "GoogleWebEngine.h"
+#include "LlmEngine.h"
 #include "TranslateEngine.h"
 
 const std::vector<EngineRegistry::Entry> &EngineRegistry::entries()
@@ -16,6 +18,17 @@ const std::vector<EngineRegistry::Entry> &EngineRegistry::entries()
         {QStringLiteral("bing"), QStringLiteral("Bing"), true,
             [](QNetworkAccessManager *nam, QObject *parent) -> TranslateEngine * {
                 return new BingWebEngine(nam, parent);
+            }},
+        // Key-gated engines ship disabled: they need an API key before they can
+        // do anything, so enabling them by default would only produce error
+        // cards (DESIGN.md §5.1).
+        {QStringLiteral("deepl"), QStringLiteral("DeepL"), false,
+            [](QNetworkAccessManager *nam, QObject *parent) -> TranslateEngine * {
+                return new DeepLEngine(nam, parent);
+            }},
+        {QStringLiteral("llm"), QStringLiteral("LLM"), false,
+            [](QNetworkAccessManager *nam, QObject *parent) -> TranslateEngine * {
+                return new LlmEngine(nam, parent);
             }},
     };
     return kEntries;

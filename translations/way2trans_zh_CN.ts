@@ -9,6 +9,7 @@
         <translation>翻译选中文本</translation>
     </message>
     <message>
+        <location filename="../src/app/Application.cpp" line="388"/>
         <source>Translate screenshot</source>
         <translation>截图翻译</translation>
     </message>
@@ -53,6 +54,39 @@
         <location filename="../src/ui/CaptureOverlay.cpp" line="96"/>
         <source>Drag to select an area to translate — Esc to cancel</source>
         <translation>拖动选择要翻译的区域 —— 按 Esc 取消</translation>
+    </message>
+</context>
+<context>
+    <name>DeepLEngine</name>
+    <message>
+        <location filename="../src/engines/DeepLEngine.cpp" line="83"/>
+        <source>Set a DeepL API key in Settings to use this engine</source>
+        <translation>请在设置中填写 DeepL API 密钥以使用此引擎</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/DeepLEngine.cpp" line="117"/>
+        <source>Network error: %1</source>
+        <translation>网络错误：%1</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/DeepLEngine.cpp" line="143"/>
+        <source>Unexpected response (endpoint may have changed)</source>
+        <translation>响应异常（接口可能已变更）</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/DeepLEngine.cpp" line="150"/>
+        <source>DeepL translation failed</source>
+        <translation>DeepL 翻译失败</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/DeepLEngine.cpp" line="156"/>
+        <source>Empty response</source>
+        <translation>响应为空</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/DeepLEngine.cpp" line="165"/>
+        <source>No translation returned</source>
+        <translation>未返回翻译结果</translation>
     </message>
 </context>
 <context>
@@ -120,6 +154,24 @@
     </message>
 </context>
 <context>
+    <name>LlmEngine</name>
+    <message>
+        <location filename="../src/engines/LlmEngine.cpp" line="112"/>
+        <source>Set an LLM API key in Settings to use this engine</source>
+        <translation>请在设置中填写 LLM API 密钥以使用此引擎</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/LlmEngine.cpp" line="159"/>
+        <source>Network error: %1</source>
+        <translation>网络错误：%1</translation>
+    </message>
+    <message>
+        <location filename="../src/engines/LlmEngine.cpp" line="165"/>
+        <source>No translation returned</source>
+        <translation>未返回翻译结果</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <location filename="../src/ui/MainWindow.cpp" line="8"/>
@@ -149,22 +201,22 @@
 <context>
     <name>PopupWindow</name>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="98"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="102"/>
         <source>Close (Esc)</source>
         <translation>关闭 (Esc)</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="116"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="120"/>
         <source>Edit the recognised text, then press Ctrl+Enter to re-translate</source>
         <translation>编辑识别出的文本，然后按 Ctrl+Enter 重新翻译</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="117"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="121"/>
         <source>Recognised text (editable)</source>
         <translation>识别出的文本（可编辑）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="90"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="94"/>
         <source>Pin (keep open on focus loss)</source>
         <translation>固定（失焦时不关闭）</translation>
     </message>

@@ -46,6 +46,11 @@ void TranslateService::reloadEngines()
                     cacheKey(result.engineId, m_lastRequest.text), CacheEntry {result, QDateTime::currentDateTime()});
             emit resultReady(result);
         });
+        // Forward streaming deltas, tagging them with the engine id so the UI can
+        // route them to the right card (LLM streaming, DESIGN.md §5).
+        const QString engineId = engine->id();
+        connect(engine, &TranslateEngine::partialResult, this,
+            [this, engineId](const QString &delta) { emit partialResult(engineId, delta); });
         m_engines << engine;
     }
     qCInfo(w2tCore) << "TranslateService active engines:" << activeEngineIds();

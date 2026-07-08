@@ -50,6 +50,9 @@ signals:
     // cleaning + language detection) so the UI can render the header/skeleton.
     void requestStarted(const TranslateRequest &request, const QStringList &engineIds);
     void resultReady(const TranslateResult &result);
+    // Streaming delta from an engine (LLM). engineId identifies the source card;
+    // the accumulated text is finalised by the matching resultReady.
+    void partialResult(const QString &engineId, const QString &delta);
 
 private:
     void dispatchTo(TranslateEngine *engine, const TranslateRequest &req);

@@ -13,6 +13,10 @@ add_library(way2trans_engines STATIC
     GoogleWebEngine.h
     BingWebEngine.cpp
     BingWebEngine.h
+    DeepLEngine.cpp
+    DeepLEngine.h
+    LlmEngine.cpp
+    LlmEngine.h
 )
 
 target_include_directories(way2trans_engines

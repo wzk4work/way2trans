@@ -40,6 +40,16 @@ target_link_libraries(tst_bingengine PRIVATE Qt6::Test way2trans_engines way2tra
 add_test(NAME tst_bingengine COMMAND tst_bingengine)
 set_tests_properties(tst_bingengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_deeplengine engines/tst_deeplengine.cpp)
+target_link_libraries(tst_deeplengine PRIVATE Qt6::Test way2trans_engines way2trans_core)
+add_test(NAME tst_deeplengine COMMAND tst_deeplengine)
+set_tests_properties(tst_deeplengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_llmengine engines/tst_llmengine.cpp)
+target_link_libraries(tst_llmengine PRIVATE Qt6::Test way2trans_engines way2trans_core)
+add_test(NAME tst_llmengine COMMAND tst_llmengine)
+set_tests_properties(tst_llmengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # --- platform: wl-paste output parsing + factory backend selection ----------
 # Pure logic only: no Wayland compositor, no wl-paste subprocess, no real X11.
 add_executable(tst_wlselectionsource platform/tst_wlselectionsource.cpp)
