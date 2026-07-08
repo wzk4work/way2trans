@@ -17,3 +17,25 @@ add_test(NAME tst_settings COMMAND tst_settings)
 # user home, so a round-trip test never clobbers a developer's config.
 set_tests_properties(tst_settings PROPERTIES
     ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config;QT_QPA_PLATFORM=offscreen")
+
+# --- core: TextCleaner + LangDetector --------------------------------------
+add_executable(tst_textcleaner core/tst_textcleaner.cpp)
+target_link_libraries(tst_textcleaner PRIVATE Qt6::Test way2trans_core)
+add_test(NAME tst_textcleaner COMMAND tst_textcleaner)
+set_tests_properties(tst_textcleaner PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_langdetector core/tst_langdetector.cpp)
+target_link_libraries(tst_langdetector PRIVATE Qt6::Test way2trans_core)
+add_test(NAME tst_langdetector COMMAND tst_langdetector)
+set_tests_properties(tst_langdetector PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# --- engines: response parsing (fixtures, no network) ----------------------
+add_executable(tst_googleengine engines/tst_googleengine.cpp)
+target_link_libraries(tst_googleengine PRIVATE Qt6::Test way2trans_engines way2trans_core)
+add_test(NAME tst_googleengine COMMAND tst_googleengine)
+set_tests_properties(tst_googleengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_bingengine engines/tst_bingengine.cpp)
+target_link_libraries(tst_bingengine PRIVATE Qt6::Test way2trans_engines way2trans_core)
+add_test(NAME tst_bingengine COMMAND tst_bingengine)
+set_tests_properties(tst_bingengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
