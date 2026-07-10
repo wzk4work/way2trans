@@ -2,6 +2,7 @@
 
 #include "CardStyle.h"
 #include "EngineResultCard.h"
+#include "HistoryItemDelegate.h"
 #include "HistoryModel.h"
 #include "LibraryService.h"
 #include "ServicesPage.h"
@@ -193,6 +194,14 @@ MainWindow::MainWindow(QWidget *parent)
             "#mainNav::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
             // The settings group header: quiet label, extra gap above.
             "#mainNav::item:disabled { color: palette(mid); margin-top: 10px; padding: 2px 12px; }"
+            // History list card: the frame carries the rounded border,
+            // the list inside is flat (same pattern as #inputCard).
+            "#listCard {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 8px;"
+            "}"
+            "#historyList { background: transparent; border: none; }"
             // Input card: the rounded surface is the card, so the
             // text edit inside stays flat and transparent.
             "#inputCard {"
@@ -292,10 +301,26 @@ QWidget *MainWindow::buildHistoryPage()
     m_historySearch->setClearButtonEnabled(true);
     layout->addWidget(m_historySearch);
 
-    m_historyView = new QListView(page);
-    m_historyView->setObjectName(QStringLiteral("contentList"));
+    // Card pattern (AGENTS.md): the frame owns the rounded border, the list
+    // inside stays flat and unpadded so scrolling can't leave paint residue.
+    auto *card = new QFrame(page);
+    card->setObjectName(QStringLiteral("listCard"));
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(4, 4, 4, 4);
+
+    m_historyView = new QListView(card);
+    m_historyView->setObjectName(QStringLiteral("historyList"));
     m_historyView->setContextMenuPolicy(Qt::CustomContextMenu);
-    layout->addWidget(m_historyView, 1);
+    m_historyView->setItemDelegate(new HistoryItemDelegate(m_historyView, m_historyView));
+    // The delegate sizes rows to the viewport; Adjust re-lays them out on
+    // resize, so the horizontal scrollbar can go away entirely.
+    m_historyView->setResizeMode(QListView::Adjust);
+    m_historyView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_historyView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_historyView->setMouseTracking(true); // hover state for the delegate
+    m_historyView->setFrameShape(QFrame::NoFrame);
+    cardLayout->addWidget(m_historyView);
+    layout->addWidget(card, 1);
     return page;
 }
 

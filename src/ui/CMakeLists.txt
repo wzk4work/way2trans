@@ -10,6 +10,8 @@ add_library(way2trans_ui STATIC
     PopupWindow.h
     CaptureOverlay.cpp
     CaptureOverlay.h
+    HistoryItemDelegate.cpp
+    HistoryItemDelegate.h
     HistoryModel.cpp
     HistoryModel.h
     VocabModel.cpp
