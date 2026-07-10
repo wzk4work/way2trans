@@ -96,7 +96,6 @@ void EngineResultCard::showPending()
     m_pending = true;
     m_streaming = false;
     m_streamText.clear();
-    m_maxBodyHeight = 260;
     if (m_body) {
         m_body->setPlainText(tr("Translating…"));
         m_body->setProperty("state", QStringLiteral("pending"));
@@ -158,14 +157,15 @@ void EngineResultCard::updateBodyHeight()
     // viewport()->width() reflects the frame padding once the card is laid out,
     // so wrapping here matches what is actually rendered. The rounded frame adds
     // its own padding, so the body is sized to just the content (+ descenders).
+    // No upper cap: the card always shows its full text, and the popup /
+    // translate page scrolls as a whole (nested per-card scrolling reads badly).
     m_body->document()->setTextWidth(m_body->viewport()->width());
     const int h = int(m_body->document()->size().height()) + 4;
-    m_body->setFixedHeight(qBound(20, h, m_maxBodyHeight));
+    m_body->setFixedHeight(qMax(20, h));
 }
 
 void EngineResultCard::setBody(const QString &plainText)
 {
-    m_maxBodyHeight = 260;
     m_body->setPlainText(plainText);
     updateBodyHeight();
 }
@@ -185,7 +185,6 @@ void EngineResultCard::setDictBody(const DictEntry &dict, const QString &fallbac
             html += QStringLiteral("<li>%1</li>").arg(def.toHtmlEscaped());
         html += QStringLiteral("</ul>");
     }
-    m_maxBodyHeight = 320;
     m_body->setHtml(html);
     updateBodyHeight();
 }

@@ -62,5 +62,4 @@ private:
     bool m_pending = true; // showing the skeleton, not a real result
     bool m_streaming = false; // accumulating streamed deltas
     QString m_streamText; // text accumulated so far while streaming
-    int m_maxBodyHeight = 260; // dictionary layouts get a taller cap
 };

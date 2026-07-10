@@ -12,7 +12,11 @@
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QScreen>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QShowEvent>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -64,7 +68,8 @@ PopupWindow::PopupWindow(QWidget *parent)
     root->setSpacing(10);
 
     // --- title bar: pin/close top-right, then the lang badge under them ---
-    auto *titleRow = new QHBoxLayout;
+    m_titleRow = new QHBoxLayout;
+    auto *titleRow = m_titleRow;
     titleRow->setSpacing(2);
     titleRow->addStretch();
 
@@ -102,17 +107,35 @@ PopupWindow::PopupWindow(QWidget *parent)
     titleRow->addWidget(m_closeButton, 0, Qt::AlignVCenter);
     root->addLayout(titleRow);
 
+    // --- scrollable content: source text + result cards --------------------
+    // The popup's height is capped to a fraction of the screen
+    // (adjustPopupSize); everything below the title bar lives in this scroll
+    // area, so overflowing results scroll instead of being clipped off-screen.
+    m_scroll = new QScrollArea(m_container);
+    m_scroll->setObjectName(QStringLiteral("popupScroll"));
+    m_scroll->setWidgetResizable(true);
+    m_scroll->setFrameShape(QFrame::NoFrame);
+    m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // Track the content's size hint, so the compact (short-result) popup still
+    // hugs its content instead of the QScrollArea default hint.
+    m_scroll->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+
+    auto *content = new QWidget(m_scroll);
+    auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(10);
+
     // --- source text: full-width boxed original text ----------------------
     // Two widgets share the slot: a read-only label for the selection flow, and
     // an editable box for the OCR flow (edit to re-translate, DESIGN.md §3.2).
     // Only one is visible per request.
-    m_sourceLabel = new QLabel(m_container);
+    m_sourceLabel = new QLabel(content);
     m_sourceLabel->setObjectName(QStringLiteral("sourceText"));
     m_sourceLabel->setWordWrap(true);
     m_sourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    root->addWidget(m_sourceLabel);
+    contentLayout->addWidget(m_sourceLabel);
 
-    m_sourceEdit = new QPlainTextEdit(m_container);
+    m_sourceEdit = new QPlainTextEdit(content);
     m_sourceEdit->setObjectName(QStringLiteral("sourceEdit"));
     m_sourceEdit->setToolTip(tr("Edit the recognised text, then press Ctrl+Enter to re-translate"));
     m_sourceEdit->setPlaceholderText(tr("Recognised text (editable)"));
@@ -120,18 +143,39 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_sourceEdit->setMaximumHeight(96);
     m_sourceEdit->installEventFilter(this); // Ctrl+Enter -> re-translate
     m_sourceEdit->hide();
-    root->addWidget(m_sourceEdit);
+    contentLayout->addWidget(m_sourceEdit);
 
     // --- cards container --------------------------------------------------
     m_cardsLayout = new QVBoxLayout;
     m_cardsLayout->setSpacing(8);
-    root->addLayout(m_cardsLayout);
+    contentLayout->addLayout(m_cardsLayout);
+    // Keeps the cards top-aligned if the viewport ever ends up taller than the
+    // content (the stretch is what absorbs the extra space, not card spacing).
+    contentLayout->addStretch();
+
+    m_scroll->setWidget(content);
+    root->addWidget(m_scroll, 1);
+
+    // adjustPopupSize() measures via height-for-width hints, which can be a
+    // text line short for the wrapped source label; the resulting scrollbar
+    // materialises only after the async window resize round-trips. When that
+    // happens, its range is the exact shortfall — absorb it while the popup
+    // still fits under the screen cap instead of scrolling a few pixels.
+    // Grow-only, so it cannot oscillate with the shrinking in adjustPopupSize.
+    connect(m_scroll->verticalScrollBar(), &QAbstractSlider::rangeChanged, this, [this](int, int max) {
+        const QScreen *scr = screen();
+        const int cap = scr ? int(scr->availableGeometry().height() * 0.7) : 600;
+        if (max > 0 && height() + max <= cap)
+            setFixedHeight(height() + max);
+    });
 
     setStyleSheet(QStringLiteral("#popupCard {"
                                  "  background: palette(window);"
                                  "  border: 1px solid palette(mid);"
                                  "  border-radius: 14px;"
                                  "}"
+                                 "#popupScroll { background: transparent; border: none; }"
+                                 "#popupScroll > QWidget > QWidget { background: transparent; }"
                                  "#sourceText, #sourceEdit {"
                                  "  font-size: 14px;"
                                  "  color: palette(text);"
@@ -194,7 +238,8 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
         m_cards.insert(id, card);
         m_cardsLayout->addWidget(card);
     }
-    adjustSize();
+    m_scroll->verticalScrollBar()->setValue(0); // fresh request reads from the top
+    adjustPopupSize();
 }
 
 void PopupWindow::applyResult(const TranslateResult &result)
@@ -203,7 +248,7 @@ void PopupWindow::applyResult(const TranslateResult &result)
     if (it == m_cards.constEnd())
         return;
     it.value()->showResult(result, m_singleWord);
-    adjustSize();
+    scheduleAdjust();
 }
 
 void PopupWindow::applyPartial(const QString &engineId, const QString &delta)
@@ -212,7 +257,7 @@ void PopupWindow::applyPartial(const QString &engineId, const QString &delta)
     if (it == m_cards.constEnd())
         return;
     it.value()->appendStreamDelta(delta);
-    adjustSize();
+    scheduleAdjust();
 }
 
 void PopupWindow::setSaved(bool saved)
@@ -235,6 +280,79 @@ void PopupWindow::onStarToggled(bool checked)
         emit saveRequested(m_currentWord, m_currentContext);
     else
         emit unsaveRequested(m_currentWord);
+}
+
+void PopupWindow::adjustPopupSize()
+{
+    // Cap the popup below the screen height so the WM never has to clip it;
+    // the scroll area absorbs whatever the cards can't show. 70% leaves room
+    // for the popup to sit near the selection without covering everything.
+    const QScreen *scr = screen();
+    const int cap = scr ? int(scr->availableGeometry().height() * 0.7) : 600;
+    setMaximumHeight(cap);
+
+    // QScrollArea's own sizeHint tops out around 24 font heights (and is
+    // cached, so it can't be trusted mid-update either), which would leave
+    // most of the cap unused for long results. Compute the fixed chrome
+    // around the scroll viewport instead and let the scroll area claim its
+    // real content height, bounded by the cap. Once the popup is laid out
+    // the chrome is measured from live geometry — an estimate that is even
+    // 2px short cascades into a pointless scrollbar; the hint-based estimate
+    // only seeds the very first (pre-show) pass.
+    int chrome;
+    if (isVisible() && m_scroll->viewport()->height() > 0) {
+        chrome = height() - m_scroll->viewport()->height();
+    } else {
+        const QMargins rm = m_container->layout()->contentsMargins();
+        chrome = 2 * kShadowMargin + rm.top() + rm.bottom() + m_container->layout()->spacing()
+            + m_titleRow->sizeHint().height() + 2; // +2: popupCard's stylesheet border
+    }
+    // The word-wrapping source label makes the content height-for-width: at
+    // the real viewport width the height differs from the hint's width, which
+    // would leave a few pixels of pointless scroll range on short results.
+    // Two measures of the content height, and we need the larger one:
+    // heightForWidth at the real viewport width (the wrapped source label is
+    // height-for-width, so plain hints lie about it), and minimumSizeHint —
+    // a resizable QScrollArea never sizes its widget below the latter, so a
+    // viewport smaller than it gets a scrollbar no matter what hfw says.
+    QLayout *contentLayout = m_scroll->widget()->layout();
+    const int viewportWidth = m_scroll->viewport()->width();
+    const int hfw = (contentLayout->hasHeightForWidth() && viewportWidth > 0)
+        ? contentLayout->heightForWidth(viewportWidth)
+        : m_scroll->widget()->sizeHint().height();
+    const int content = qMax(hfw, m_scroll->widget()->minimumSizeHint().height());
+    // +4px slack: at an exact content == viewport fit, ±1px layout rounding
+    // can summon the scrollbar, which narrows the viewport, re-wraps the text
+    // taller and thereby justifies itself. The slack breaks that feedback.
+    const int inner = qMax(0, qMin(content + 4, cap - chrome));
+    m_scroll->setMinimumHeight(inner);
+    adjustSize(); // settles the width; it never shrinks an expanding window
+    // …so pin the height explicitly, or a long result would leave the popup
+    // tall forever once a shorter one follows. resize() alone doesn't work
+    // here either: the layout re-applies a cached (stale) minimum size until
+    // the pending LayoutRequest is processed, and that minimum wins over a
+    // smaller resize() target. An explicit fixed height beats both. Width is
+    // left as adjusted above: narrowing it would re-wrap the source label and
+    // grow the content right back.
+    setFixedHeight(chrome + inner);
+}
+
+void PopupWindow::scheduleAdjust()
+{
+    if (m_adjustPending)
+        return;
+    m_adjustPending = true;
+    QTimer::singleShot(0, this, [this]() {
+        m_adjustPending = false;
+        adjustPopupSize();
+    });
+}
+
+QSize PopupWindow::sizeHint() const
+{
+    QSize hint = QWidget::sizeHint();
+    hint.setHeight(qMin(hint.height(), maximumHeight()));
+    return hint;
 }
 
 void PopupWindow::clearCards()

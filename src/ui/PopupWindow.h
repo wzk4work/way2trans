@@ -6,9 +6,11 @@
 #include <QPoint>
 #include <QWidget>
 
+class QHBoxLayout;
 class QVBoxLayout;
 class QFrame;
 class QLabel;
+class QScrollArea;
 class QToolButton;
 class QPlainTextEdit;
 class EngineResultCard;
@@ -46,6 +48,11 @@ public:
     // star renders filled (★) or hollow (☆). Called by the app after a lookup.
     void setSaved(bool saved);
 
+    // The layout's hint can exceed the screen-height cap (the scroll area
+    // absorbs the difference), so clamp it: placement backends size the window
+    // from this hint and must see the capped height.
+    QSize sizeHint() const override;
+
 signals:
     // Emitted when the retry button on a failed card is pressed.
     void retryRequested(const QString &engineId);
@@ -75,8 +82,17 @@ private:
     void setPinned(bool pinned);
     void clearCards();
     void onStarToggled(bool checked);
+    // adjustSize() with the height capped to a fraction of the current screen,
+    // so long results scroll inside the popup instead of overflowing off-screen.
+    void adjustPopupSize();
+    // Deferred, coalesced adjustPopupSize(): card body resizes invalidate
+    // layouts via posted LayoutRequest events, so size hints read in the same
+    // call stack are stale — adjust one event-loop iteration later instead.
+    void scheduleAdjust();
 
     QFrame *m_container = nullptr;
+    QScrollArea *m_scroll = nullptr; // scrollable source + cards region
+    QHBoxLayout *m_titleRow = nullptr; // fixed chrome above the scroll area
     QLabel *m_sourceLabel = nullptr;
     QPlainTextEdit *m_sourceEdit = nullptr; // editable source (OCR flow)
     QLabel *m_langPairLabel = nullptr;
@@ -87,6 +103,7 @@ private:
     QHash<QString, EngineResultCard *> m_cards;
     bool m_pinned = false;
     bool m_singleWord = false;
+    bool m_adjustPending = false; // a deferred scheduleAdjust() is queued
     bool m_everActivated = false;
     bool m_dragging = false;
     QPoint m_dragOffset;
