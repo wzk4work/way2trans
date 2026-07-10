@@ -28,11 +28,13 @@ public:
     explicit PopupWindow(QWidget *parent = nullptr);
 
     // Reset to a fresh skeleton for a new request: show the source text and one
-    // pending card per engine id. Called before results start arriving.
+    // pending card per engine id. `engineNames` maps engine (service instance)
+    // ids to their user-visible names; missing ids fall back to the raw id.
     // When `editableSource` is true (screenshot / OCR flow, DESIGN.md §3.2) the
     // original text box becomes editable and committing an edit re-triggers the
     // translation via sourceEdited().
-    void beginRequest(const TranslateRequest &request, const QStringList &engineIds, bool editableSource = false);
+    void beginRequest(const TranslateRequest &request, const QStringList &engineIds,
+        const QHash<QString, QString> &engineNames, bool editableSource = false);
 
     // Fill in (or replace) the card for result.engineId.
     void applyResult(const TranslateResult &result);

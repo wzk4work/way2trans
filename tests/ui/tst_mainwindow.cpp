@@ -1,5 +1,5 @@
 #include "MainWindow.h"
-#include "SettingsPage.h"
+#include "ServicesPage.h"
 
 #include <QListWidget>
 #include <QStackedWidget>
@@ -12,23 +12,32 @@ class TestMainWindow : public QObject {
     Q_OBJECT
 
 private slots:
-    void hasFourPages();
+    void hasFlatGroupedNavigation();
     void showSettingsSwitchesPage();
     void constructsWithoutServices();
 };
 
-void TestMainWindow::hasFourPages()
+void TestMainWindow::hasFlatGroupedNavigation()
 {
     MainWindow window;
     auto *nav = window.findChild<QListWidget *>(QStringLiteral("mainNav"));
     auto *pages = window.findChild<QStackedWidget *>(QStringLiteral("mainPages"));
     QVERIFY(nav != nullptr);
     QVERIFY(pages != nullptr);
-    // Navigation order is Translate / History / Vocabulary / Settings.
-    QCOMPARE(nav->count(), 4);
-    QCOMPARE(pages->count(), 4);
-    for (int i = 0; i < nav->count(); ++i)
+    // Translate / History / Vocabulary + "Settings" group header + General /
+    // Hotkeys / Services / OCR / Platform: nine nav rows over eight pages.
+    QCOMPARE(nav->count(), 9);
+    QCOMPARE(pages->count(), 8);
+
+    // Exactly one non-selectable group header.
+    int headers = 0;
+    for (int i = 0; i < nav->count(); ++i) {
+        if (!(nav->item(i)->flags() & Qt::ItemIsSelectable))
+            ++headers;
         QVERIFY(!nav->item(i)->text().isEmpty());
+    }
+    QCOMPARE(headers, 1);
+
     // The window opens on the translate page.
     QCOMPARE(nav->currentRow(), 0);
     QCOMPARE(pages->currentIndex(), 0);
@@ -37,13 +46,15 @@ void TestMainWindow::hasFourPages()
 void TestMainWindow::showSettingsSwitchesPage()
 {
     MainWindow window;
-    QVERIFY(window.settingsPage() != nullptr);
+    QVERIFY(window.servicesPage() != nullptr);
     window.showSettings();
     auto *nav = window.findChild<QListWidget *>(QStringLiteral("mainNav"));
-    QCOMPARE(nav->currentRow(), nav->count() - 1);
-    // The settings page is the widget shown by the stack.
     auto *pages = window.findChild<QStackedWidget *>(QStringLiteral("mainPages"));
-    QCOMPARE(pages->currentWidget(), window.settingsPage());
+    // showSettings() lands on the first settings entry (the row after the
+    // group header) and the stack follows the item's page index.
+    QVERIFY(nav->currentItem() != nullptr);
+    QCOMPARE(pages->currentIndex(), nav->currentItem()->data(Qt::UserRole).toInt());
+    QVERIFY(pages->currentIndex() >= 3);
 }
 
 void TestMainWindow::constructsWithoutServices()

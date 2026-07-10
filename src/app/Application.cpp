@@ -12,8 +12,9 @@
 #include "PopupPlacement.h"
 #include "PopupWindow.h"
 #include "SelectionSource.h"
+#include "ServiceInstances.h"
+#include "ServicesPage.h"
 #include "Settings.h"
-#include "SettingsPage.h"
 #include "TranslateService.h"
 #include "TrayIcon.h"
 #include "engines/EngineRegistry.h"
@@ -197,7 +198,7 @@ int Application::runAsPrimary(const CliAction &initialAction)
     // tester (the app owns the engine subsystem, so ui/ never links engines/)
     // and apply engine config edits behind a short debounce, since the page
     // writes through to Settings on every keystroke.
-    m_mainWindow->settingsPage()->setEngineTester(
+    m_mainWindow->servicesPage()->setEngineTester(
         [this](const QString &engineId, std::function<void(bool, QString)> done) {
             testEngineConnectivity(engineId, std::move(done));
         });
@@ -209,7 +210,7 @@ int Application::runAsPrimary(const CliAction &initialAction)
             m_translateService->reloadEngines();
     });
     connect(
-        m_mainWindow->settingsPage(), &SettingsPage::enginesChanged, m_engineReloadTimer, qOverload<>(&QTimer::start));
+        m_mainWindow->servicesPage(), &ServicesPage::enginesChanged, m_engineReloadTimer, qOverload<>(&QTimer::start));
 
     m_tray = std::make_unique<TrayIcon>(this);
     if (m_tray->isAvailable()) {
@@ -389,9 +390,12 @@ void Application::setupServices()
             m_currentRequest = req;
             m_historyRecorded = false;
             m_lastGoodResult = {};
+            QHash<QString, QString> names;
+            for (const QString &id : ids)
+                names.insert(id, m_translateService->engineDisplayName(id));
             // The source box is editable only for the screenshot/OCR flow so the
             // user can correct a misrecognition and re-translate (DESIGN.md §3.2).
-            m_popup->beginRequest(req, ids, m_captureInProgress);
+            m_popup->beginRequest(req, ids, names, m_captureInProgress);
         });
     connect(m_translateService, &TranslateService::partialResult, this,
         [this](const QString &engineId, const QString &delta) { m_popup->applyPartial(engineId, delta); });
@@ -669,12 +673,17 @@ void Application::testEngineConnectivity(const QString &engineId, std::function<
 {
     // Connectivity test: run a one-shot "hello" through a throwaway engine
     // instance so the settings page can report reachability without touching
-    // the live engine set.
-    auto *engine = EngineRegistry::create(engineId, m_translateService->networkManager(), this);
+    // the live engine set. `engineId` is a service instance id; resolve its
+    // engine type and bind the instance's config group.
+    const QString group = ServiceInstances::configGroup(engineId);
+    const QString type = Settings::instance().value(group + QStringLiteral("/type")).toString();
+    auto *engine = EngineRegistry::create(type.isEmpty() ? engineId : type, m_translateService->networkManager(), this);
     if (!engine) {
         done(false, tr("Unknown engine"));
         return;
     }
+    if (!type.isEmpty())
+        engine->setInstance(engineId, QString(), group);
     // Own the engine only for the duration of this test.
     auto *guard = new QTimer(engine);
     guard->setSingleShot(true);

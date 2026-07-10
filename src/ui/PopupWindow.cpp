@@ -17,21 +17,6 @@
 #include <QVBoxLayout>
 
 namespace {
-// Display names for the built-in engine ids (kept local to avoid pulling the
-// engines/ registry into the ui/ layer).
-QString engineDisplayName(const QString &id)
-{
-    if (id == QLatin1String("google"))
-        return QStringLiteral("Google");
-    if (id == QLatin1String("bing"))
-        return QStringLiteral("Bing");
-    if (id == QLatin1String("deepl"))
-        return QStringLiteral("DeepL");
-    if (id == QLatin1String("llm"))
-        return QStringLiteral("LLM");
-    return id;
-}
-
 // A single "word" for dictionary-preference purposes: <= 2 whitespace tokens
 // and no sentence punctuation (DESIGN.md §5.1 word scenario).
 bool looksLikeWord(const QString &text)
@@ -174,7 +159,8 @@ PopupWindow::PopupWindow(QWidget *parent)
         + w2t::ui::cardStyleSheet());
 }
 
-void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds, bool editableSource)
+void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds,
+    const QHash<QString, QString> &engineNames, bool editableSource)
 {
     clearCards();
     m_singleWord = looksLikeWord(request.text);
@@ -203,7 +189,7 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
     m_langPairLabel->setText(QStringLiteral("%1 → %2").arg(request.sourceLang, request.targetLang));
 
     for (const QString &id : engineIds) {
-        auto *card = new EngineResultCard(id, engineDisplayName(id), m_container);
+        auto *card = new EngineResultCard(id, engineNames.value(id, id), m_container);
         connect(card, &EngineResultCard::retryRequested, this, &PopupWindow::retryRequested);
         m_cards.insert(id, card);
         m_cardsLayout->addWidget(card);

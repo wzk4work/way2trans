@@ -10,7 +10,7 @@ class TranslateService;
 class HistoryModel;
 class VocabModel;
 class EngineResultCard;
-class SettingsPage;
+class ServicesPage;
 class QPlainTextEdit;
 class QLineEdit;
 class QListView;
@@ -22,14 +22,14 @@ class QLabel;
 class QTextBrowser;
 class QModelIndex;
 
-// Main window (DESIGN.md §7): a narrow navigation sidebar on the left —
-// Translate / History / Vocabulary / Settings — with a stacked page area,
-// following the layout of mainstream translators (Pot, STranslate). History
-// and Vocabulary consume QAbstractListModel-derived models over the storage
-// layer; the Translate page reuses the shared TranslateService and renders one
-// EngineResultCard per engine. Settings is a first-class page (SettingsPage),
-// not a separate dialog. Services are injected so the window never owns
-// platform/engine state.
+// Main window (DESIGN.md §7): a single flat navigation sidebar on the left —
+// Translate / History / Vocabulary, then a "Settings" group with General /
+// Hotkeys / Services / OCR / Platform — over a stacked page area, following
+// the layout of mainstream translators (Pot, STranslate). History and
+// Vocabulary consume QAbstractListModel-derived models over the storage
+// layer; the Translate page reuses the shared TranslateService and renders
+// one EngineResultCard per engine. Services are injected so the window never
+// owns platform/engine state.
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -43,12 +43,13 @@ public:
     // Pre-fill the translate page input and run it (history re-translation).
     void translateText(const QString &text);
 
-    // Switch to the settings page (tray "Settings…" and similar entry points).
+    // Switch to the first settings page (tray "Settings…" and similar entry
+    // points).
     void showSettings();
 
-    // The embedded settings page; the app injects the engine connectivity
+    // The embedded services page; the app injects the engine connectivity
     // tester and listens for engine config changes through it.
-    SettingsPage *settingsPage() const { return m_settingsPage; }
+    ServicesPage *servicesPage() const { return m_servicesPage; }
 
 signals:
     // A translation was requested from this window (translate page or a history
@@ -76,10 +77,12 @@ private:
     TranslateService *m_translate = nullptr;
     LibraryService *m_library = nullptr;
 
-    // Shell: sidebar navigation + stacked pages (indexes follow nav order).
+    // Shell: sidebar navigation + stacked pages. Nav items carry their page
+    // index in Qt::UserRole (the "Settings" group header is not selectable).
     QListWidget *m_nav = nullptr;
     QStackedWidget *m_pages = nullptr;
-    SettingsPage *m_settingsPage = nullptr;
+    ServicesPage *m_servicesPage = nullptr;
+    int m_firstSettingsRow = 0; // nav row of the first settings entry
 
     // Translate page.
     QPlainTextEdit *m_input = nullptr;

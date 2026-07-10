@@ -4,7 +4,8 @@
 #include "EngineResultCard.h"
 #include "HistoryModel.h"
 #include "LibraryService.h"
-#include "SettingsPage.h"
+#include "ServicesPage.h"
+#include "SettingsSections.h"
 #include "TranslateService.h"
 #include "VocabModel.h"
 
@@ -32,19 +33,6 @@
 #include <QVBoxLayout>
 
 namespace {
-QString engineDisplayName(const QString &id)
-{
-    if (id == QLatin1String("google"))
-        return QStringLiteral("Google");
-    if (id == QLatin1String("bing"))
-        return QStringLiteral("Bing");
-    if (id == QLatin1String("deepl"))
-        return QStringLiteral("DeepL");
-    if (id == QLatin1String("llm"))
-        return QStringLiteral("LLM");
-    return id;
-}
-
 QString statusLabel(int status)
 {
     switch (status) {
@@ -64,9 +52,9 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle(tr("way2trans"));
     resize(820, 560);
 
-    // Shell: sidebar navigation on the left, stacked pages on the right — the
-    // layout mainstream translators use. Settings is the last page, so it can
-    // host its own section list without nesting two tab bars.
+    // Shell: one flat sidebar on the left, stacked pages on the right — the
+    // layout mainstream translators use. The settings sections sit directly in
+    // this sidebar under a group header, so there is no second-level nav.
     auto *central = new QWidget(this);
     auto *rootLayout = new QHBoxLayout(central);
     rootLayout->setContentsMargins(0, 0, 0, 0);
@@ -83,21 +71,45 @@ MainWindow::MainWindow(QWidget *parent)
     m_pages->setObjectName(QStringLiteral("mainPages"));
     rootLayout->addWidget(m_pages, 1);
 
-    m_settingsPage = new SettingsPage(central);
-    const struct {
-        QString label;
-        QWidget *page;
-    } pages[] = {
-        {tr("Translate"), buildTranslatePage()},
-        {tr("History"), buildHistoryPage()},
-        {tr("Vocabulary"), buildVocabPage()},
-        {tr("Settings"), m_settingsPage},
+    // Tall pages (services list, hotkey guidance) scroll instead of forcing a
+    // large window minimum.
+    auto scrolled = [this](QWidget *page) -> QWidget * {
+        auto *area = new QScrollArea(this);
+        area->setWidgetResizable(true);
+        area->setFrameShape(QFrame::NoFrame);
+        area->setWidget(page);
+        return area;
     };
-    for (const auto &p : pages) {
-        m_nav->addItem(p.label);
-        m_pages->addWidget(p.page);
-    }
-    connect(m_nav, &QListWidget::currentRowChanged, m_pages, &QStackedWidget::setCurrentIndex);
+    auto addPage = [this](const QString &label, QWidget *page) {
+        auto *item = new QListWidgetItem(label, m_nav);
+        item->setData(Qt::UserRole, m_pages->count());
+        m_pages->addWidget(page);
+    };
+
+    m_servicesPage = new ServicesPage(central);
+
+    addPage(tr("Translate"), buildTranslatePage());
+    addPage(tr("History"), buildHistoryPage());
+    addPage(tr("Vocabulary"), buildVocabPage());
+
+    // Non-selectable group header separating the settings sections.
+    auto *header = new QListWidgetItem(tr("Settings"), m_nav);
+    header->setFlags(Qt::NoItemFlags);
+    QFont headerFont = font();
+    headerFont.setPointSizeF(headerFont.pointSizeF() * 0.85);
+    header->setFont(headerFont);
+
+    m_firstSettingsRow = m_nav->count();
+    addPage(tr("General"), scrolled(w2t::ui::buildGeneralPage(this)));
+    addPage(tr("Hotkeys"), scrolled(w2t::ui::buildHotkeysPage(this)));
+    addPage(tr("Services"), scrolled(m_servicesPage));
+    addPage(tr("OCR"), scrolled(w2t::ui::buildOcrPage(this)));
+    addPage(tr("Platform"), scrolled(w2t::ui::buildPlatformPage(this)));
+
+    connect(m_nav, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *current, QListWidgetItem *) {
+        if (current)
+            m_pages->setCurrentIndex(current->data(Qt::UserRole).toInt());
+    });
     m_nav->setCurrentRow(0);
 
     // Rounded, popup-consistent styling for inputs, lists and buttons; the
@@ -140,6 +152,8 @@ MainWindow::MainWindow(QWidget *parent)
                        "}"
                        "#mainNav::item { padding: 9px 12px; border-radius: 8px; margin: 1px 4px; }"
                        "#mainNav::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+                       // The settings group header: quiet label, extra gap above.
+                       "#mainNav::item:disabled { color: palette(mid); margin-top: 10px; padding: 2px 12px; }"
                        // Input card: the rounded surface is the card, so the
                        // text edit inside stays flat and transparent.
                        "#inputCard {"
@@ -332,7 +346,7 @@ void MainWindow::translateText(const QString &text)
 
 void MainWindow::showSettings()
 {
-    m_nav->setCurrentRow(m_nav->count() - 1); // settings is the last page
+    m_nav->setCurrentRow(m_firstSettingsRow);
 }
 
 void MainWindow::runTranslation()
@@ -365,7 +379,8 @@ void MainWindow::onRequestStarted(const TranslateRequest &request, const QString
     m_cards.clear();
 
     for (const QString &id : engineIds) {
-        auto *card = new EngineResultCard(id, engineDisplayName(id), this);
+        const QString name = m_translate ? m_translate->engineDisplayName(id) : id;
+        auto *card = new EngineResultCard(id, name, this);
         if (m_translate)
             connect(card, &EngineResultCard::retryRequested, m_translate, &TranslateService::retry);
         // Insert before the trailing stretch.
