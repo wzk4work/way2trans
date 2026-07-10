@@ -14,8 +14,8 @@ add_library(way2trans_ui STATIC
     HistoryModel.h
     VocabModel.cpp
     VocabModel.h
-    SettingsDialog.cpp
-    SettingsDialog.h
+    SettingsPage.cpp
+    SettingsPage.h
 )
 
 target_include_directories(way2trans_ui

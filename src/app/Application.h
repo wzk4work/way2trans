@@ -6,6 +6,7 @@
 #include <QList>
 #include <QRect>
 #include <QString>
+#include <functional>
 #include <memory>
 
 class DBusService;
@@ -20,6 +21,7 @@ class TranslateService;
 class OcrService;
 class LibraryService;
 class CaptureOverlay;
+class QTimer;
 struct ScreenImage;
 
 // Result of parsing the command line into a single deferred action.
@@ -104,6 +106,10 @@ private:
     // Show the result popup near the cursor and kick off a translation.
     void translateSelectionText(const QString &text);
 
+    // Run a one-shot "hello" through a throwaway engine instance and report
+    // reachability (settings page connectivity test, DESIGN.md §7).
+    void testEngineConnectivity(const QString &engineId, std::function<void(bool, QString)> done);
+
     // Screenshot-translation pipeline (DESIGN.md §3.2): capture -> overlay ->
     // OCR -> translate -> popup beside the selection.
     void onScreensCaptured(const QList<ScreenImage> &screens);
@@ -132,6 +138,10 @@ private:
     QList<CaptureOverlay *> m_overlays; // live overlays (WA_DeleteOnClose)
     QRect m_captureAnchor; // selection rect for popup placement
     bool m_captureInProgress = false;
+
+    // Debounces SettingsPage::enginesChanged into reloadEngines(), so typing an
+    // API key doesn't rebuild the engine set on every keystroke.
+    QTimer *m_engineReloadTimer = nullptr;
 
     // M4 history/vocabulary bookkeeping for the in-flight request.
     QString m_currentTrigger; // selection|capture|input|clipboard

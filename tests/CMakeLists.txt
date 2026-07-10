@@ -94,9 +94,10 @@ add_test(NAME tst_captureoverlay COMMAND tst_captureoverlay)
 set_tests_properties(tst_captureoverlay PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# --- ui: MainWindow tabbed shell smoke test (M4) ----------------------------
+# --- ui: MainWindow sidebar shell smoke test (M4) ---------------------------
 add_executable(tst_mainwindow ui/tst_mainwindow.cpp)
 target_link_libraries(tst_mainwindow PRIVATE Qt6::Test way2trans_ui way2trans_core)
 add_test(NAME tst_mainwindow COMMAND tst_mainwindow)
+# Hermetic config too: the embedded SettingsPage reads Settings at construction.
 set_tests_properties(tst_mainwindow PROPERTIES
-    ENVIRONMENT "XDG_DATA_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-data-mw;QT_QPA_PLATFORM=offscreen")
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-mw;XDG_DATA_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-data-mw;QT_QPA_PLATFORM=offscreen")

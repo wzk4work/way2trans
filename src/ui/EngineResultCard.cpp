@@ -16,18 +16,27 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
 {
     setObjectName(QStringLiteral("engineCard"));
     m_layout = new QVBoxLayout(this);
-    // The card is just a layout group now; the rounded box is the body itself,
-    // so keep the card flush and let the body sit close to the popup edges.
+    // The card root is a transparent layout group; the visible rounded surface
+    // is the frame below, which now carries both the header and the body
+    // (single-box card, the layout mainstream translators use).
     m_layout->setContentsMargins(0, 0, 0, 0);
-    m_layout->setSpacing(4);
+    m_layout->setSpacing(0);
+
+    // QFrame rounds cleanly. The QTextEdit sits inside it fully transparent,
+    // so its rectangular viewport can't paint over the rounded corners.
+    m_bodyFrame = new QFrame(this);
+    m_bodyFrame->setObjectName(QStringLiteral("resultBox"));
+    auto *frameLayout = new QVBoxLayout(m_bodyFrame);
+    frameLayout->setContentsMargins(10, 6, 10, 7);
+    frameLayout->setSpacing(4);
 
     auto *headerRow = new QHBoxLayout;
-    m_header = new QLabel(displayName, this);
+    m_header = new QLabel(displayName, m_bodyFrame);
     m_header->setObjectName(QStringLiteral("engineName"));
     headerRow->addWidget(m_header);
     headerRow->addStretch();
 
-    m_copyButton = new QToolButton(this);
+    m_copyButton = new QToolButton(m_bodyFrame);
     m_copyButton->setObjectName(QStringLiteral("cardButton"));
     m_copyButton->setText(tr("Copy"));
     m_copyButton->setToolTip(tr("Copy result"));
@@ -37,7 +46,7 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
         [this]() { QApplication::clipboard()->setText(m_body ? m_body->toPlainText() : QString()); });
     headerRow->addWidget(m_copyButton);
 
-    m_retryButton = new QToolButton(this);
+    m_retryButton = new QToolButton(m_bodyFrame);
     m_retryButton->setObjectName(QStringLiteral("cardButton"));
     m_retryButton->setText(tr("Retry"));
     m_retryButton->setCursor(Qt::PointingHandCursor);
@@ -45,16 +54,22 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
     connect(m_retryButton, &QToolButton::clicked, this, [this]() { emit retryRequested(m_engineId); });
     headerRow->addWidget(m_retryButton);
 
-    m_layout->addLayout(headerRow);
+    m_collapseButton = new QToolButton(m_bodyFrame);
+    m_collapseButton->setObjectName(QStringLiteral("cardButton"));
+    // Disclosure triangle, same convention as the settings service cards:
+    // ▾ while the body is shown, ▸ while collapsed.
+    m_collapseButton->setArrowType(Qt::DownArrow);
+    m_collapseButton->setCheckable(true);
+    m_collapseButton->setToolTip(tr("Collapse"));
+    m_collapseButton->setCursor(Qt::PointingHandCursor);
+    connect(m_collapseButton, &QToolButton::toggled, this, [this](bool collapsed) {
+        m_collapseButton->setArrowType(collapsed ? Qt::RightArrow : Qt::DownArrow);
+        m_collapseButton->setToolTip(collapsed ? tr("Expand") : tr("Collapse"));
+        m_body->setVisible(!collapsed);
+    });
+    headerRow->addWidget(m_collapseButton);
 
-    // The rounded box is a plain frame (QFrame rounds cleanly). The QTextEdit
-    // sits inside it fully transparent, so its rectangular viewport can't paint
-    // over the frame's rounded corners.
-    m_bodyFrame = new QFrame(this);
-    m_bodyFrame->setObjectName(QStringLiteral("resultBox"));
-    auto *bodyLayout = new QVBoxLayout(m_bodyFrame);
-    bodyLayout->setContentsMargins(8, 5, 8, 5);
-    bodyLayout->setSpacing(0);
+    frameLayout->addLayout(headerRow);
 
     m_body = new QTextEdit(m_bodyFrame);
     m_body->setObjectName(QStringLiteral("resultBody"));
@@ -65,7 +80,7 @@ EngineResultCard::EngineResultCard(const QString &engineId, const QString &displ
     m_body->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_body->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_body->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
-    bodyLayout->addWidget(m_body);
+    frameLayout->addWidget(m_body);
     m_layout->addWidget(m_bodyFrame);
 
     showPending();
@@ -75,6 +90,9 @@ void EngineResultCard::showPending()
 {
     m_copyButton->hide();
     m_retryButton->hide();
+    // A fresh request always shows its body (e.g. retry on a collapsed card).
+    if (m_collapseButton)
+        m_collapseButton->setChecked(false);
     m_pending = true;
     m_streaming = false;
     m_streamText.clear();

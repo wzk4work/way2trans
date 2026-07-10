@@ -13,7 +13,7 @@
 #include "PopupWindow.h"
 #include "SelectionSource.h"
 #include "Settings.h"
-#include "SettingsDialog.h"
+#include "SettingsPage.h"
 #include "TranslateService.h"
 #include "TrayIcon.h"
 #include "engines/EngineRegistry.h"
@@ -193,7 +193,23 @@ int Application::runAsPrimary(const CliAction &initialAction)
         m_currentTrigger = QStringLiteral("input");
         m_translateService->translate(text);
     });
-    connect(m_mainWindow.get(), &MainWindow::settingsRequested, this, &Application::openSettings);
+    // Settings is a page inside the main window now. Inject the connectivity
+    // tester (the app owns the engine subsystem, so ui/ never links engines/)
+    // and apply engine config edits behind a short debounce, since the page
+    // writes through to Settings on every keystroke.
+    m_mainWindow->settingsPage()->setEngineTester(
+        [this](const QString &engineId, std::function<void(bool, QString)> done) {
+            testEngineConnectivity(engineId, std::move(done));
+        });
+    m_engineReloadTimer = new QTimer(this);
+    m_engineReloadTimer->setSingleShot(true);
+    m_engineReloadTimer->setInterval(600);
+    connect(m_engineReloadTimer, &QTimer::timeout, this, [this]() {
+        if (m_translateService)
+            m_translateService->reloadEngines();
+    });
+    connect(
+        m_mainWindow->settingsPage(), &SettingsPage::enginesChanged, m_engineReloadTimer, qOverload<>(&QTimer::start));
 
     m_tray = std::make_unique<TrayIcon>(this);
     if (m_tray->isAvailable()) {
@@ -644,41 +660,38 @@ void Application::showMainWindow()
 void Application::openSettings()
 {
     qCInfo(w2tApp) << "openSettings";
-    SettingsDialog dialog(m_mainWindow ? m_mainWindow.get() : nullptr);
+    // Settings lives inside the main window: bring it up on the settings page.
+    showMainWindow();
+    m_mainWindow->showSettings();
+}
 
+void Application::testEngineConnectivity(const QString &engineId, std::function<void(bool, QString)> done)
+{
     // Connectivity test: run a one-shot "hello" through a throwaway engine
-    // instance so the dialog can report reachability without touching the live
-    // engine set (app owns the engine subsystem, so ui/ never links engines/).
-    dialog.setEngineTester([this](const QString &engineId, std::function<void(bool, QString)> done) {
-        auto *engine = EngineRegistry::create(engineId, m_translateService->networkManager(), this);
-        if (!engine) {
-            done(false, tr("Unknown engine"));
-            return;
-        }
-        // Own the engine only for the duration of this test.
-        auto *guard = new QTimer(engine);
-        guard->setSingleShot(true);
-        connect(engine, &TranslateEngine::resultReady, this, [engine, done](const TranslateResult &r) {
-            done(r.ok(), r.ok() ? r.translatedText.left(40) : r.error);
-            engine->deleteLater();
-        });
-        connect(guard, &QTimer::timeout, this, [engine, done]() {
-            done(false, tr("Timed out"));
-            engine->deleteLater();
-        });
-        guard->start(10000);
-        TranslateRequest req;
-        req.text = QStringLiteral("hello");
-        req.sourceLang = QStringLiteral("auto");
-        req.targetLang = QStringLiteral("zh-CN");
-        engine->translate(req);
+    // instance so the settings page can report reachability without touching
+    // the live engine set.
+    auto *engine = EngineRegistry::create(engineId, m_translateService->networkManager(), this);
+    if (!engine) {
+        done(false, tr("Unknown engine"));
+        return;
+    }
+    // Own the engine only for the duration of this test.
+    auto *guard = new QTimer(engine);
+    guard->setSingleShot(true);
+    connect(engine, &TranslateEngine::resultReady, this, [engine, done](const TranslateResult &r) {
+        done(r.ok(), r.ok() ? r.translatedText.left(40) : r.error);
+        engine->deleteLater();
     });
-
-    dialog.exec();
-
-    // Apply engine enable/disable/order changes made in the dialog.
-    if (m_translateService)
-        m_translateService->reloadEngines();
+    connect(guard, &QTimer::timeout, this, [engine, done]() {
+        done(false, tr("Timed out"));
+        engine->deleteLater();
+    });
+    guard->start(10000);
+    TranslateRequest req;
+    req.text = QStringLiteral("hello");
+    req.sourceLang = QStringLiteral("auto");
+    req.targetLang = QStringLiteral("zh-CN");
+    engine->translate(req);
 }
 
 QString Application::translate(const QString &text)

@@ -10,12 +10,14 @@ class QTextEdit;
 class QToolButton;
 class QVBoxLayout;
 
-// One engine's result card inside the popup (DESIGN.md §7).
+// One engine's result card inside the popup and the main window (DESIGN.md §7).
 //
-// States: pending (skeleton spinner text), success (selectable result text with
-// a copy button; dictionary layout for word lookups), and error (message + a
-// retry button). The card owns its own copy-to-clipboard and emits retry so the
-// popup can re-run just this engine.
+// A single rounded surface in the style of mainstream translators: a header
+// row (engine name, copy/retry actions, a collapse chevron) above the result
+// body. States: pending (skeleton spinner text), success (selectable result
+// text with a copy button; dictionary layout for word lookups), and error
+// (message + a retry button). The card owns its own copy-to-clipboard and
+// emits retry so the popup can re-run just this engine.
 class EngineResultCard : public QWidget {
     Q_OBJECT
 
@@ -55,6 +57,7 @@ private:
     QTextEdit *m_body = nullptr;
     QToolButton *m_copyButton = nullptr;
     QToolButton *m_retryButton = nullptr;
+    QToolButton *m_collapseButton = nullptr;
     QVBoxLayout *m_layout = nullptr;
     bool m_pending = true; // showing the skeleton, not a real result
     bool m_streaming = false; // accumulating streamed deltas

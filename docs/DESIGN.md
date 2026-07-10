@@ -51,7 +51,7 @@ way2trans 是一个 Linux 桌面翻译工具，对标 macOS 的 Bob，核心能�
 │  TranslateService     │◄──│  PopupWindow(结果弹窗)        │
 │  OcrService           │   │  MainWindow(输入翻译)         │
 │  LangDetector         │   │  CaptureOverlay(截图选区)     │
-│  Settings             │   │  SettingsDialog              │
+│  Settings             │   │  SettingsPage                │
 └──┬────────────────┬───┘   └──────────────┬───────────────┘
    │ 接口            │ 接口                 │ 接口
 ┌──▼──────────┐ ┌───▼──────────┐ ┌─────────▼────────────────┐
@@ -286,8 +286,8 @@ signals:
 
 - **PopupWindow**：无边框圆角卡片。顶部原文（可折叠）+ 语言对与切换；下方每个引擎一张结果卡（引擎名、结果、复制按钮、朗读按钮二期）；`Esc`/失焦关闭（layer-shell 下用 keyboard interactivity=on_demand 拿 Esc）。固定态按钮（📌）：钉住后失焦不关。
 - **CaptureOverlay**:全屏截图冻结帧 + 变暗 + 拖拽选框 + 尺寸提示，多屏各一个 overlay。X11 下全屏无边框窗口；Wayland 下 layer-shell overlay 层 + 独占键盘（Esc 取消）。
-- **MainWindow**：三个标签页——翻译（输入翻译）/ 历史 / 生词本（后两者见 §8）。
-- **SettingsDialog**：常规（语言对、启动项）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 引擎（启停、排序、key 配置、连通性测试按钮）/ OCR / 平台（后端探测结果展示与强制覆盖）。
+- **MainWindow**：左侧导航栏 + 堆叠页（主流划词翻译工具的布局）——翻译（输入翻译）/ 历史 / 生词本（后两者见 §8）/ 设置（SettingsPage）。
+- **SettingsPage**（主窗口内嵌页，左侧二级分区列表）：常规（语言对、启动项）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 服务（每引擎一张可展开卡片：启停、上下移排序、key 配置、连通性测试按钮）/ OCR / 平台（后端探测结果展示与强制覆盖）。引擎配置改动经 app 层防抖后热重载引擎集。
 - **TrayIcon**：StatusNotifierItem（Qt 自动走 SNI/D-Bus，KDE/XFCE/Cinnamon 都支持），菜单含各动作入口。
 - 主题跟随系统（Qt 6.5+ `colorScheme`），深浅色两套样式表。
 - **国际化**：所有用户可见字符串用 `tr()`、源串英文；`zh_CN` 翻译随功能同步维护（`translations/way2trans_zh_CN.ts`，构建时 `lrelease` 成 `.qm` 嵌入 `:/i18n`，运行时按系统 locale 加载）。开发规约见 AGENTS.md「国际化」。一期只维护中文，其他语言 M5 补齐。
