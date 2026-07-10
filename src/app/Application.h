@@ -159,4 +159,5 @@ private:
     TranslateRequest m_currentRequest; // request being translated right now
     TranslateResult m_lastGoodResult; // latest ok result (snapshot for the star)
     bool m_historyRecorded = false; // only the first ok result is recorded
+    bool m_autoCopied = false; // auto-copy fired for this request (§10 autoCopyResult)
 };

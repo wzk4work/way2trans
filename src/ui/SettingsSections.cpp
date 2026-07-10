@@ -59,6 +59,14 @@ QWidget *buildGeneralPage(QWidget *parent)
     QObject::connect(autostart, &QCheckBox::toggled, page, [](bool on) { Settings::instance().setAutostart(on); });
     form->addRow(autostart);
 
+    // Bob-style convenience: the first successful result of every translation
+    // lands in the clipboard (DESIGN.md §10 autoCopyResult).
+    auto *autoCopy = new QCheckBox(SettingsSections::tr("Copy the first result to the clipboard automatically"), page);
+    autoCopy->setChecked(s.value(QStringLiteral("general/autoCopyResult"), false).toBool());
+    QObject::connect(autoCopy, &QCheckBox::toggled, page,
+        [](bool on) { Settings::instance().setValue(QStringLiteral("general/autoCopyResult"), on); });
+    form->addRow(autoCopy);
+
     // History retention.
     auto *historyEnabled = new QCheckBox(SettingsSections::tr("Keep translation history"), page);
     historyEnabled->setChecked(s.value(QStringLiteral("general/historyEnabled"), true).toBool());

@@ -397,6 +397,7 @@ void Application::setupServices()
         [this](const TranslateRequest &req, const QStringList &ids) {
             m_currentRequest = req;
             m_historyRecorded = false;
+            m_autoCopied = false;
             m_lastGoodResult = {};
             QHash<QString, QString> names;
             for (const QString &id : ids)
@@ -415,6 +416,11 @@ void Application::setupServices()
         m_popup->applyResult(result);
 
         if (result.ok()) {
+            // Auto-copy the first successful result if enabled (DESIGN.md §10).
+            if (!m_autoCopied && Settings::instance().value(QStringLiteral("general/autoCopyResult"), false).toBool()) {
+                m_autoCopied = true;
+                QApplication::clipboard()->setText(result.translatedText);
+            }
             // Record history once per request, on the first successful result
             // (DESIGN.md §8.2). Remember it as the snapshot the star will save.
             m_lastGoodResult = result;
