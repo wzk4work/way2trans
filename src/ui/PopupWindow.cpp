@@ -135,15 +135,27 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_sourceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     contentLayout->addWidget(m_sourceLabel);
 
-    m_sourceEdit = new QPlainTextEdit(content);
+    // The rounded surface is a QFrame and the text edit inside stays flat and
+    // padding-free (same pattern as #inputCard / #resultBox): a stylesheet
+    // box model directly on a scrollable widget leaves blit residue of the
+    // previous frame in the padding strip when the content scrolls.
+    m_sourceCard = new QFrame(content);
+    m_sourceCard->setObjectName(QStringLiteral("sourceCard"));
+    auto *sourceCardLayout = new QVBoxLayout(m_sourceCard);
+    sourceCardLayout->setContentsMargins(8, 6, 8, 6);
+
+    m_sourceEdit = new QPlainTextEdit(m_sourceCard);
     m_sourceEdit->setObjectName(QStringLiteral("sourceEdit"));
+    m_sourceEdit->setFrameShape(QFrame::NoFrame);
+    m_sourceEdit->viewport()->setAutoFillBackground(false);
     m_sourceEdit->setToolTip(tr("Edit the recognised text, then press Ctrl+Enter to re-translate"));
     m_sourceEdit->setPlaceholderText(tr("Recognised text (editable)"));
     m_sourceEdit->setTabChangesFocus(true);
     m_sourceEdit->setMaximumHeight(96);
     m_sourceEdit->installEventFilter(this); // Ctrl+Enter -> re-translate
-    m_sourceEdit->hide();
-    contentLayout->addWidget(m_sourceEdit);
+    sourceCardLayout->addWidget(m_sourceEdit);
+    m_sourceCard->hide();
+    contentLayout->addWidget(m_sourceCard);
 
     // --- cards container --------------------------------------------------
     m_cardsLayout = new QVBoxLayout;
@@ -176,13 +188,22 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "}"
                                  "#popupScroll { background: transparent; border: none; }"
                                  "#popupScroll > QWidget > QWidget { background: transparent; }"
-                                 "#sourceText, #sourceEdit {"
-                                 "  font-size: 14px;"
-                                 "  color: palette(text);"
+                                 "#sourceText, #sourceCard {"
                                  "  background: palette(base);"
                                  "  border: 1px solid palette(midlight);"
                                  "  border-radius: 8px;"
+                                 "}"
+                                 "#sourceText {"
+                                 "  font-size: 14px;"
+                                 "  color: palette(text);"
                                  "  padding: 6px 8px;"
+                                 "}"
+                                 "#sourceEdit {"
+                                 "  font-size: 14px;"
+                                 "  color: palette(text);"
+                                 "  background: transparent;"
+                                 "  border: none;"
+                                 "  padding: 0;"
                                  "}"
                                  "#langPair {"
                                  "  color: palette(highlight-text);"
@@ -222,7 +243,7 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
 
     // Show the read-only label or the editable box depending on the flow.
     m_sourceLabel->setVisible(!editableSource);
-    m_sourceEdit->setVisible(editableSource);
+    m_sourceCard->setVisible(editableSource);
     if (editableSource) {
         // Avoid emitting sourceEdited while we programmatically set the text.
         QSignalBlocker blocker(m_sourceEdit);

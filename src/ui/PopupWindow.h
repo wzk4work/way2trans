@@ -91,6 +91,7 @@ private:
     void scheduleAdjust();
 
     QFrame *m_container = nullptr;
+    QFrame *m_sourceCard = nullptr; // rounded surface around the editable source
     QScrollArea *m_scroll = nullptr; // scrollable source + cards region
     QHBoxLayout *m_titleRow = nullptr; // fixed chrome above the scroll area
     QLabel *m_sourceLabel = nullptr;
