@@ -31,6 +31,11 @@ public:
     // (DESIGN.md §3.2, §6): shown when no OCR backend is usable or all failed.
     void notifyOcrUnavailable(const QString &hint);
 
+    // Silent capture OCR outcome (DESIGN.md §3.4): the only feedback the flow
+    // gives, since it never opens a window.
+    void notifyOcrCopied(const QString &preview);
+    void notifyOcrEmpty();
+
 private:
     Application *m_app;
     QSystemTrayIcon *m_tray;

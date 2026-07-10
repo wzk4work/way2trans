@@ -22,6 +22,7 @@
 #include "engines/TranslateTypes.h"
 #include "screenshot/ScreenshotBackend.h"
 
+#include <QClipboard>
 #include <QCommandLineParser>
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -43,6 +44,8 @@ QString dbusMethodForTrigger(const QString &trigger)
         return QStringLiteral("TriggerSelection");
     if (trigger == QLatin1String("capture"))
         return QStringLiteral("TriggerCapture");
+    if (trigger == QLatin1String("capture-ocr"))
+        return QStringLiteral("TriggerCaptureOcr");
     if (trigger == QLatin1String("clipboard"))
         return QStringLiteral("TriggerClipboard");
     if (trigger == QLatin1String("show-main"))
@@ -86,7 +89,7 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
 
     // Positional: `trigger <action>`.
     parser.addPositionalArgument(
-        QStringLiteral("command"), QStringLiteral("trigger <selection|capture|clipboard|show-main>"));
+        QStringLiteral("command"), QStringLiteral("trigger <selection|capture|capture-ocr|clipboard|show-main>"));
 
     auto invalid = [](const QString &reason) {
         CliAction a;
@@ -128,7 +131,8 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
     const QString command = positional.first();
     if (command == QLatin1String("trigger")) {
         if (positional.size() < 2) {
-            return invalid(QStringLiteral("'trigger' requires an action: selection|capture|clipboard|show-main"));
+            return invalid(
+                QStringLiteral("'trigger' requires an action: selection|capture|capture-ocr|clipboard|show-main"));
         }
         const QString action = positional.at(1);
         if (dbusMethodForTrigger(action).isEmpty()) {
@@ -324,6 +328,8 @@ void Application::dispatch(const CliAction &action)
             triggerSelection();
         else if (action.trigger == QLatin1String("capture"))
             triggerCapture();
+        else if (action.trigger == QLatin1String("capture-ocr"))
+            triggerCaptureOcr();
         else if (action.trigger == QLatin1String("clipboard"))
             triggerClipboard();
         else if (action.trigger == QLatin1String("show-main"))
@@ -444,6 +450,8 @@ void Application::setupServices()
             triggerSelection();
         else if (actionId == QLatin1String("translate-capture"))
             triggerCapture();
+        else if (actionId == QLatin1String("capture-ocr"))
+            triggerCaptureOcr();
         else if (actionId == QLatin1String("translate-clipboard"))
             triggerClipboard();
         else if (actionId == QLatin1String("show-main"))
@@ -472,6 +480,17 @@ void Application::setupServices()
         qCInfo(w2tApp) << "translate-capture hotkey not grabbed (" << m_hotkeyBackend->name()
                        << "); use `way2trans trigger capture`";
 
+    const QString ocrSeq = Settings::instance()
+                               .value(QStringLiteral("hotkeys/capture-ocr"), QStringLiteral("Ctrl+Alt+Shift+S"))
+                               .toString();
+    const bool ocrGrabbed = m_hotkeyBackend->registerAction(
+        QStringLiteral("capture-ocr"), QKeySequence(ocrSeq), tr("Screenshot OCR to clipboard"));
+    if (ocrGrabbed)
+        qCInfo(w2tApp) << "capture-ocr hotkey registered:" << ocrSeq;
+    else
+        qCInfo(w2tApp) << "capture-ocr hotkey not grabbed (" << m_hotkeyBackend->name()
+                       << "); use `way2trans trigger capture-ocr`";
+
     // --- M3 screenshot translation ---------------------------------------
     m_screenshotBackend = PlatformFactory::createScreenshotBackend(this);
     connect(m_screenshotBackend, &ScreenshotBackend::captured, this, &Application::onScreensCaptured);
@@ -485,6 +504,17 @@ void Application::setupServices()
         qCInfo(w2tApp) << "OCR text (" << text.size() << "chars):" << text.left(60);
         if (text.trimmed().isEmpty()) {
             m_captureInProgress = false;
+            if (m_captureMode == CaptureMode::SilentOcr && m_tray && m_tray->isAvailable())
+                m_tray->notifyOcrEmpty();
+            return;
+        }
+        // Silent capture OCR (DESIGN.md §3.4): the text goes straight to the
+        // clipboard — no popup, no translation, no history row.
+        if (m_captureMode == CaptureMode::SilentOcr) {
+            m_captureInProgress = false;
+            QApplication::clipboard()->setText(text);
+            if (m_tray && m_tray->isAvailable())
+                m_tray->notifyOcrCopied(text.left(80));
             return;
         }
         // Show the popup beside the selection, then translate (DESIGN.md §3.2).
@@ -554,8 +584,19 @@ void Application::triggerSelection()
 void Application::triggerCapture()
 {
     qCInfo(w2tApp) << "triggerCapture";
+    startCapture(CaptureMode::Translate);
+}
+
+void Application::triggerCaptureOcr()
+{
+    qCInfo(w2tApp) << "triggerCaptureOcr";
+    startCapture(CaptureMode::SilentOcr);
+}
+
+void Application::startCapture(CaptureMode mode)
+{
     if (!m_screenshotBackend || !m_ocrService) {
-        qCWarning(w2tApp) << "triggerCapture before services ready";
+        qCWarning(w2tApp) << "capture requested before services ready";
         return;
     }
     if (m_captureInProgress) {
@@ -569,6 +610,7 @@ void Application::triggerCapture()
             m_tray->notifyOcrUnavailable(m_ocrService->unavailableHint());
         return;
     }
+    m_captureMode = mode;
     m_captureInProgress = true;
     m_screenshotBackend->captureFullScreen();
 }

@@ -82,6 +82,7 @@ public:
     // --- Actions (invoked by D-Bus, tray, CLI) ---------------------------
     void triggerSelection();
     void triggerCapture();
+    void triggerCaptureOcr(); // silent capture OCR: recognise to clipboard (§3.4)
     void triggerClipboard();
     void showMainWindow();
     void openSettings();
@@ -92,6 +93,10 @@ public:
     LibraryService *libraryService() const { return m_libraryService; }
 
 private:
+    // What a capture does with the recognised text: translate in the popup
+    // (§3.2) or copy it straight to the clipboard (§3.4).
+    enum class CaptureMode { Translate, SilentOcr };
+
     // Perform a parsed action against this (primary) instance.
     void dispatch(const CliAction &action);
 
@@ -111,7 +116,9 @@ private:
     void testEngineConnectivity(const QString &engineId, std::function<void(bool, QString)> done);
 
     // Screenshot-translation pipeline (DESIGN.md §3.2): capture -> overlay ->
-    // OCR -> translate -> popup beside the selection.
+    // OCR -> translate -> popup beside the selection. The silent variant
+    // (§3.4) shares it and diverts the recognised text to the clipboard.
+    void startCapture(CaptureMode mode);
     void onScreensCaptured(const QList<ScreenImage> &screens);
     void onRegionSelected(const QImage &cropped, const QRect &screenRect);
     void startOcrAndTranslate(const QImage &image, const QRect &anchorRect);
@@ -138,6 +145,9 @@ private:
     QList<CaptureOverlay *> m_overlays; // live overlays (WA_DeleteOnClose)
     QRect m_captureAnchor; // selection rect for popup placement
     bool m_captureInProgress = false; // re-entry guard: overlay/OCR still running
+    // Mode of the capture in flight. One meaning only — the re-entry guard
+    // above stays a separate field (AGENTS.md).
+    CaptureMode m_captureMode = CaptureMode::Translate;
     bool m_popupSourceEditable = false; // popup shows an editable source (OCR flow)
 
     // Debounces SettingsPage::enginesChanged into reloadEngines(), so typing an

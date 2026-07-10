@@ -99,6 +99,8 @@ QWidget *buildHotkeysPage(QWidget *parent)
             QStringLiteral("Ctrl+Alt+D")},
         {QStringLiteral("hotkeys/translate-capture"), SettingsSections::tr("Translate screenshot"),
             QStringLiteral("Ctrl+Alt+S")},
+        {QStringLiteral("hotkeys/capture-ocr"), SettingsSections::tr("Screenshot OCR to clipboard"),
+            QStringLiteral("Ctrl+Alt+Shift+S")},
         {QStringLiteral("hotkeys/show-main"), SettingsSections::tr("Show main window"), QString()},
         {QStringLiteral("hotkeys/translate-clipboard"), SettingsSections::tr("Translate clipboard"), QString()},
     };
@@ -134,6 +136,7 @@ QWidget *buildHotkeysPage(QWidget *parent)
     };
     addCmd(QStringLiteral("way2trans trigger selection"));
     addCmd(QStringLiteral("way2trans trigger capture"));
+    addCmd(QStringLiteral("way2trans trigger capture-ocr"));
     layout->addWidget(guidance);
     layout->addStretch();
     return page;
