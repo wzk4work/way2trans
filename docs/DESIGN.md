@@ -26,6 +26,7 @@ way2trans 是一个 Linux 桌面翻译工具，对标 macOS 的 Bob，核心能�
 - **不适配 GNOME Wayland**：GNOME 不实现 data-control 与 layer-shell 协议，划词需要模拟按键、弹窗无法定位，体验残缺。GNOME 用户可使用 X11 会话。
 - 不做鼠标划词自动弹出（Wayland 无法监听全局鼠标），交互统一为「选中 + 快捷键」。
 - 不内置间隔重复（SRS）背单词系统——生词本只做「收集、管理、导出」，复习交给 Anki（提供导出格式对接，见 §8.3）。
+- 不做「替换翻译」（Bob 的译文直接替换所选文本）：需要向其他应用注入文本/按键，Wayland 没有合法通道，X11 也只能靠模拟按键，脆弱且越权（对标盘点见 [bob-benchmark.md](bob-benchmark.md)）。
 - 不做 Windows / macOS 移植（架构上不排斥，但不投入）。
 
 ### 1.3 平台支持矩阵
@@ -111,8 +112,20 @@ way2trans 是一个 Linux 桌面翻译工具，对标 macOS 的 Bob，核心能�
 
 ### 3.3 输入翻译 / 剪贴板翻译
 
-- 主窗口：输入框 + 语言选择 + 引擎结果区，快捷键 `show-main` 唤起。
+- 主窗口：输入框 + 语言选择 + 引擎结果区，快捷键 `show-main` 唤起。输入框 Enter 直接翻译、Shift+Enter 换行（对标 Bob/Pot）。
 - `translate-clipboard` 动作：读 CLIPBOARD（非 PRIMARY）走同一链路，作为 GNOME/受限环境的兜底入口。
+
+### 3.4 静默截图 OCR
+
+```
+快捷键 "capture-ocr"
+  → 同 3.2 抓屏 + CaptureOverlay 框选
+  → OcrService::recognize
+  → 识别文本直接写入 CLIPBOARD，托盘气泡确认，不弹任何窗口、不翻译
+```
+
+对标 Bob 的「静默截图 OCR」（⌥C，重度用户高频功能）。截图翻译链路的旁路复用，
+不新增平台代码；识别失败走与 3.2 相同的托盘提示；不写入历史记录。
 
 ---
 
@@ -144,7 +157,8 @@ signals:
 class HotkeyBackend : public QObject {
     Q_OBJECT
 public:
-    // actionId: "translate-selection" | "translate-capture" | "show-main" | "translate-clipboard"
+    // actionId: "translate-selection" | "translate-capture" | "capture-ocr"
+    //           | "show-main" | "translate-clipboard"
     virtual bool registerAction(const QString &actionId,
                                 const QKeySequence &sequence,
                                 const QString &description) = 0;
@@ -284,7 +298,7 @@ signals:
 
 ## 7. UI 设计（ui/）
 
-- **PopupWindow**：无边框圆角卡片。顶部原文（可折叠）+ 语言对与切换；下方每个引擎一张结果卡（引擎名、结果、复制按钮、朗读按钮二期）；`Esc`/失焦关闭（layer-shell 下用 keyboard interactivity=on_demand 拿 Esc）。固定态按钮（📌）：钉住后失焦不关。
+- **PopupWindow**：无边框圆角卡片。顶部原文（可折叠）+ 语言对与切换；下方每个引擎一张结果卡（引擎名、结果、复制按钮、朗读按钮二期）；`Esc`/失焦关闭（layer-shell 下用 keyboard interactivity=on_demand 拿 Esc）。固定态按钮（📌）：钉住后失焦不关。键盘操作（对标 Bob）：`Ctrl+P` 钉住、`Ctrl+S` 星标（单词场景）、`Ctrl+Shift+C` 复制首个成功结果、`Ctrl+Enter`（OCR 源框）重翻。
 - **CaptureOverlay**:全屏截图冻结帧 + 变暗 + 拖拽选框 + 尺寸提示，多屏各一个 overlay。X11 下全屏无边框窗口；Wayland 下 layer-shell overlay 层 + 独占键盘（Esc 取消）。
 - **MainWindow**：单列扁平侧栏 + 堆叠页（主流划词翻译工具的布局）——翻译（输入翻译）/ 历史 / 生词本（后两者见 §8），下接「设置」分组标题：常规 / 快捷键 / 服务 / OCR / 平台，无二级导航。
 - **设置页**：常规（语言对、启动项，SettingsSections）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 服务（ServicesPage，见下）/ OCR / 平台（后端探测结果展示与强制覆盖）。配置改动即写即生效；服务相关改动经 app 层防抖后热重载引擎集。
@@ -357,14 +371,14 @@ CREATE TABLE vocab (
 ## 9. 单实例、D-Bus 与 CLI
 
 - D-Bus 服务名 `io.github.way2trans`，对象 `/io/github/way2trans`，接口方法：
-  `TriggerSelection()` / `TriggerCapture()` / `TriggerClipboard()` / `ShowMain()` / `Translate(s text) → s`。
+  `TriggerSelection()` / `TriggerCapture()` / `TriggerCaptureOcr()` / `TriggerClipboard()` / `ShowMain()` / `Translate(s text) → s`。
 - 启动时若服务名已被占用：把本次 CLI 参数转发给已运行实例后退出（单实例机制本体，不再额外用锁文件）。
 - CLI：`way2trans trigger <action>`、`way2trans --text "hello"`。这既是 Null 快捷键后端的落点，也天然支持脚本化。
 
 ## 10. 配置（core/Settings）
 
 - `~/.config/way2trans/way2trans.conf`，QSettings INI，文件权限 0600（含 API key）。
-- 分组：`[general]` 语言对规则、开机自启；`[hotkeys]`；`[services/<uuid>]` 服务实例（type/name/enabled/order/key…，旧版 `[engines/<type>]` 首启时自动迁移）；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置。
+- 分组：`[general]` 语言对规则、开机自启、翻译完成自动复制首个结果（`autoCopyResult`，默认关）；`[hotkeys]`；`[services/<uuid>]` 服务实例（type/name/enabled/order/key…，旧版 `[engines/<type>]` 首启时自动迁移）；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置。
 - API key 一期明文存本地（0600 + 文档说明），二期可选 QtKeychain。
 - 配置变更全部通过 `Settings` 单例信号广播，无需重启生效。
 
@@ -401,7 +415,7 @@ CREATE TABLE vocab (
 | **M1 X11 划词 MVP** | X11 取词/快捷键/光标弹窗 + Google/Bing 引擎 + TextCleaner | X11 会话全流程可用，选中→出结果 < 1s |
 | **M2 Wayland** | wl-paste 取词、portal 快捷键、LayerShellQt 弹窗、平台探测完整化 | KDE Wayland 与 Sway 全流程可用 |
 | **M3 截图翻译** | ScreenshotBackend ×3、CaptureOverlay、Tesseract 接入、OCR helper 进程框架 + 微信 OCR 后端 | 三类环境截图翻译可用，有微信环境时默认走微信 OCR |
-| **M4 引擎与数据** | DeepL、LLM 流式引擎、词典卡片、SQLite 存储层 + 历史记录 + 生词本（含 Anki/CSV/JSON 导出）、设置页完整 | 对标 Bob 的核心日常体验 |
+| **M4 引擎与数据** | DeepL、LLM 流式引擎、词典卡片、SQLite 存储层 + 历史记录 + 生词本（含 Anki/CSV/JSON 导出）、设置页完整、对标盘点高优先级项（[bob-benchmark.md](bob-benchmark.md)：静默截图 OCR、弹窗快捷键、Enter 翻译、自动复制） | 对标 Bob 的核心日常体验 |
 | **M5 分发** | AUR + AppImage + Flatpak、文档、其他语言的 i18n（`zh_CN` 已随功能持续维护，见 §7） | 外部用户可安装使用 |
 | M6+ | RapidOCR、原生 data-control、朗读 TTS、剪贴板监听模式、AnkiConnect 推送 | — |
 
