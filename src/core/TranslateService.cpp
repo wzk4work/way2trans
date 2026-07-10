@@ -9,6 +9,8 @@
 
 #include <QNetworkAccessManager>
 
+#include <algorithm>
+
 namespace {
 // Results for the same (engine, text) pair are reused within this window.
 constexpr int kCacheTtlSeconds = 30;
@@ -32,7 +34,21 @@ void TranslateService::reloadEngines()
     m_engines.clear();
 
     Settings &settings = Settings::instance();
-    for (const EngineRegistry::Entry &entry : EngineRegistry::entries()) {
+
+    // Respect the user-configured display order (engines/<id>/order, written by
+    // the settings page); the default is registry declaration order. Engine
+    // order decides the order of result cards in the popup and main window.
+    std::vector<EngineRegistry::Entry> entries = EngineRegistry::entries();
+    QHash<QString, int> defaultOrder;
+    for (size_t i = 0; i < entries.size(); ++i)
+        defaultOrder.insert(entries.at(i).id, int(i));
+    std::stable_sort(entries.begin(), entries.end(),
+        [&settings, &defaultOrder](const EngineRegistry::Entry &a, const EngineRegistry::Entry &b) {
+            return settings.value(QStringLiteral("engines/%1/order").arg(a.id), defaultOrder.value(a.id)).toInt()
+                < settings.value(QStringLiteral("engines/%1/order").arg(b.id), defaultOrder.value(b.id)).toInt();
+        });
+
+    for (const EngineRegistry::Entry &entry : entries) {
         const QString key = QStringLiteral("engines/%1/enabled").arg(entry.id);
         const bool enabled = settings.value(key, entry.defaultEnabled).toBool();
         if (!enabled)

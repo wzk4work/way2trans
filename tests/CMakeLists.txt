@@ -29,6 +29,13 @@ target_link_libraries(tst_langdetector PRIVATE Qt6::Test way2trans_core)
 add_test(NAME tst_langdetector COMMAND tst_langdetector)
 set_tests_properties(tst_langdetector PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# --- core: TranslateService engine set (enabled flags + configured order) ---
+add_executable(tst_translateservice core/tst_translateservice.cpp)
+target_link_libraries(tst_translateservice PRIVATE Qt6::Test way2trans_core way2trans_engines)
+add_test(NAME tst_translateservice COMMAND tst_translateservice)
+set_tests_properties(tst_translateservice PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-ts;QT_QPA_PLATFORM=offscreen")
+
 # --- core: SQLite storage (history + vocabulary), hermetic temp DBs (M4) -----
 add_executable(tst_storage core/tst_storage.cpp)
 target_link_libraries(tst_storage PRIVATE Qt6::Test way2trans_core)
