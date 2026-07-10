@@ -4,6 +4,7 @@
 #include "EngineResultCard.h"
 
 #include <QApplication>
+#include <QClipboard>
 #include <QEvent>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
@@ -15,6 +16,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QShowEvent>
 #include <QTimer>
 #include <QToolButton>
@@ -83,7 +85,7 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_starButton->setObjectName(QStringLiteral("iconButton"));
     m_starButton->setCheckable(true);
     m_starButton->setText(QStringLiteral("☆"));
-    m_starButton->setToolTip(tr("Add to vocabulary"));
+    m_starButton->setToolTip(tr("Add to vocabulary (Ctrl+S)"));
     m_starButton->setCursor(Qt::PointingHandCursor);
     m_starButton->hide();
     connect(m_starButton, &QToolButton::toggled, this, &PopupWindow::onStarToggled);
@@ -93,7 +95,7 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_pinButton->setObjectName(QStringLiteral("iconButton"));
     m_pinButton->setCheckable(true);
     m_pinButton->setText(QStringLiteral("📌"));
-    m_pinButton->setToolTip(tr("Pin (keep open on focus loss)"));
+    m_pinButton->setToolTip(tr("Pin (keep open on focus loss, Ctrl+P)"));
     m_pinButton->setCursor(Qt::PointingHandCursor);
     connect(m_pinButton, &QToolButton::toggled, this, &PopupWindow::setPinned);
     titleRow->addWidget(m_pinButton, 0, Qt::AlignVCenter);
@@ -106,6 +108,21 @@ PopupWindow::PopupWindow(QWidget *parent)
     connect(m_closeButton, &QToolButton::clicked, this, &PopupWindow::close);
     titleRow->addWidget(m_closeButton, 0, Qt::AlignVCenter);
     root->addLayout(titleRow);
+
+    // Keyboard access to the title-bar actions (DESIGN.md §7, Bob-style):
+    // window-context shortcuts, so they fire with any child focused.
+    auto *pinShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_P), this);
+    connect(pinShortcut, &QShortcut::activated, m_pinButton, &QToolButton::toggle);
+    auto *starShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_S), this);
+    connect(starShortcut, &QShortcut::activated, this, [this]() {
+        if (m_starButton->isVisible())
+            m_starButton->toggle();
+    });
+    auto *copyShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C), this);
+    connect(copyShortcut, &QShortcut::activated, this, [this]() {
+        if (!m_firstResultText.isEmpty())
+            QApplication::clipboard()->setText(m_firstResultText);
+    });
 
     // --- scrollable content: source text + result cards --------------------
     // The popup's height is capped to a fraction of the screen
@@ -229,6 +246,7 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
 {
     clearCards();
     m_singleWord = looksLikeWord(request.text);
+    m_firstResultText.clear();
 
     // The star is a single-word affordance; reset it to the hollow state until
     // the app reports whether this word is already saved (setSaved).
@@ -268,6 +286,8 @@ void PopupWindow::applyResult(const TranslateResult &result)
     auto it = m_cards.constFind(result.engineId);
     if (it == m_cards.constEnd())
         return;
+    if (result.ok() && m_firstResultText.isEmpty())
+        m_firstResultText = result.translatedText;
     it.value()->showResult(result, m_singleWord);
     scheduleAdjust();
 }
@@ -288,7 +308,7 @@ void PopupWindow::setSaved(bool saved)
     QSignalBlocker blocker(m_starButton); // reflect state without re-triggering
     m_starButton->setChecked(saved);
     m_starButton->setText(saved ? QStringLiteral("★") : QStringLiteral("☆"));
-    m_starButton->setToolTip(saved ? tr("Remove from vocabulary") : tr("Add to vocabulary"));
+    m_starButton->setToolTip(saved ? tr("Remove from vocabulary (Ctrl+S)") : tr("Add to vocabulary (Ctrl+S)"));
 }
 
 void PopupWindow::onStarToggled(bool checked)
@@ -296,7 +316,7 @@ void PopupWindow::onStarToggled(bool checked)
     if (m_currentWord.isEmpty())
         return;
     m_starButton->setText(checked ? QStringLiteral("★") : QStringLiteral("☆"));
-    m_starButton->setToolTip(checked ? tr("Remove from vocabulary") : tr("Add to vocabulary"));
+    m_starButton->setToolTip(checked ? tr("Remove from vocabulary (Ctrl+S)") : tr("Add to vocabulary (Ctrl+S)"));
     if (checked)
         emit saveRequested(m_currentWord, m_currentContext);
     else

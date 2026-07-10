@@ -475,37 +475,49 @@
 <context>
     <name>PopupWindow</name>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="86"/>
-        <location filename="../src/ui/PopupWindow.cpp" line="291"/>
-        <location filename="../src/ui/PopupWindow.cpp" line="299"/>
         <source>Add to vocabulary</source>
-        <translation>加入生词本</translation>
+        <translation type="vanished">加入生词本</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="104"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="88"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="311"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="319"/>
+        <source>Add to vocabulary (Ctrl+S)</source>
+        <translation>加入生词本（Ctrl+S）</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/PopupWindow.cpp" line="98"/>
+        <source>Pin (keep open on focus loss, Ctrl+P)</source>
+        <translation>钉住（失焦不关闭，Ctrl+P）</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/PopupWindow.cpp" line="106"/>
         <source>Close (Esc)</source>
         <translation>关闭 (Esc)</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="151"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="168"/>
         <source>Edit the recognised text, then press Ctrl+Enter to re-translate</source>
         <translation>编辑识别出的文本，然后按 Ctrl+Enter 重新翻译</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="152"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="169"/>
         <source>Recognised text (editable)</source>
         <translation>识别出的文本（可编辑）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="291"/>
-        <location filename="../src/ui/PopupWindow.cpp" line="299"/>
-        <source>Remove from vocabulary</source>
-        <translation>移出生词本</translation>
+        <location filename="../src/ui/PopupWindow.cpp" line="311"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="319"/>
+        <source>Remove from vocabulary (Ctrl+S)</source>
+        <translation>从生词本移除（Ctrl+S）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="96"/>
+        <source>Remove from vocabulary</source>
+        <translation type="vanished">移出生词本</translation>
+    </message>
+    <message>
         <source>Pin (keep open on focus loss)</source>
-        <translation>固定（失焦时不关闭）</translation>
+        <translation type="vanished">固定（失焦时不关闭）</translation>
     </message>
 </context>
 <context>
@@ -907,12 +919,12 @@
         <translation>截图翻译不可用</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="113"/>
+        <location filename="../src/app/TrayIcon.cpp" line="112"/>
         <source>Copied to clipboard</source>
         <translation>已复制到剪贴板</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="121"/>
+        <location filename="../src/app/TrayIcon.cpp" line="120"/>
         <source>No text was recognised</source>
         <translation>未识别到文本</translation>
     </message>

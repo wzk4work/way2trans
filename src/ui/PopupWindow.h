@@ -110,4 +110,5 @@ private:
     QPoint m_dragOffset;
     QString m_currentWord; // the queried word for the star (single-word lookups)
     QString m_currentContext; // full source text saved as vocab context
+    QString m_firstResultText; // first successful result (Ctrl+Shift+C copies it)
 };
