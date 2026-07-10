@@ -59,6 +59,15 @@ packaging/      AppImage / Flatpak / deb 打包配置
 - 标识符与注释用英文；用户可见字符串一律用 `tr()` 包裹，**源串写英文**（详见下方「国际化」）
 - 提交前跑 `clang-format`（配置在仓库根 `.clang-format`，Qt 风格）
 
+## Qt UI 实践（本项目踩过的坑，务必遵守）
+
+- **样式表禁止用裸控件类型名做全局卡片样式**（如 `QListView { … }`）：Qt 复合控件内部会复用这些类型——QComboBox 的下拉弹层内部就是一个 QListView，必然被误伤（弹层几何错乱）。卡片类样式一律用 objectName 选择器限定作用域（如 `#contentList`）。
+- **圆角/内边距不要直接写在可滚动控件上**（QAbstractScrollArea 派生类：QPlainTextEdit、QTextEdit、QListView 等）：滚动重绘走位块搬移，样式表 padding 带不参与重绘，会留下上一帧文字的残影。统一用卡片模式：外层 QFrame 承担圆角边框和 padding，内层控件透明、无边框、零 padding（现有示例：`#inputCard`、`#resultBox`、`#sourceCard`）。
+- **给 QComboBox 本体写盒模型样式**会让 Qt 切换到菜单式弹层渲染，必须同时提供 `QComboBox::item:selected` 高亮规则，否则选中项白字白底不可见。
+- **程序化控制顶层窗口尺寸**的三个陷阱：布局的 sizeHint/minimumSize 有缓存、失效经 LayoutRequest 事件延迟处理，改完子控件尺寸的同一调用栈里读到的是旧值（把测量推迟到下一个事件循环迭代并合并）；`adjustSize()` 不会收缩带 Expanding 子项的顶层窗口、`resize()` 会被过期的最小尺寸约束顶住（需要强制时用 `setFixedHeight`）；窗口 resize 回包是异步的（X11 ConfigureNotify / Wayland configure），观察 resize 后的状态要用信号（如滚动条 `rangeChanged`），不能靠 0 毫秒定时器抢跑。参考实现：[PopupWindow.cpp](src/ui/PopupWindow.cpp) 的 `adjustPopupSize()`。
+- **一个状态字段只表达一个含义**，重入锁不得兼任 UI 状态。先例：截图流程的 `m_captureInProgress` 曾兼任"弹窗原文可编辑"标记，成功路径为保 UI 状态不复位，导致快捷键永久锁死。
+- **当下环境无法验证的事项**（如需要 Wayland 会话、特定合成器）记录到 [docs/todo/](docs/todo/)，一个主题一个文件，写清验证步骤，完成后勾掉/删除。
+
 ## 国际化（i18n）
 
 - **源串一律英文**，用 `tr()` 包裹；禁止把中文（或任何非英文）直接写进 `tr()`。
