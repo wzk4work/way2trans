@@ -47,3 +47,34 @@ jobs:
 
       - name: Build (release)
         run: cmake --build --preset release
+
+  # Complements the Ubuntu job: Arch carries all optional dependencies
+  # (Tesseract, LayerShellQt, xcb-keysyms), so this build exercises the
+  # fully-featured configuration the AUR package will ship (DESIGN.md §11/§12),
+  # while Ubuntu covers the minimal-dependency degradation path.
+  build-arch:
+    name: Build & Test (Arch Linux, full deps)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            cmake ninja gcc pkgconf git dbus \
+            qt6-base qt6-tools \
+            tesseract tesseract-data-eng leptonica \
+            layer-shell-qt xcb-util-keysyms \
+            ttf-dejavu
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure (dev)
+        run: cmake --preset dev
+
+      - name: Build (dev)
+        run: cmake --build --preset dev
+
+      - name: Test (dev)
+        run: dbus-run-session -- ctest --preset dev
