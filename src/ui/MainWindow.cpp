@@ -18,6 +18,7 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
@@ -240,6 +241,7 @@ QWidget *MainWindow::buildTranslatePage()
     m_input->setPlaceholderText(tr("Enter text to translate…"));
     m_input->setMaximumHeight(110);
     m_input->setTabChangesFocus(true);
+    m_input->installEventFilter(this); // Enter translates, Shift+Enter newline
     cardLayout->addWidget(m_input);
 
     auto *toolbar = new QHBoxLayout;
@@ -413,6 +415,21 @@ void MainWindow::translateText(const QString &text)
 void MainWindow::showSettings()
 {
     m_nav->setCurrentRow(m_firstSettingsRow);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    // Enter runs the translation, Shift+Enter inserts a newline (Bob/Pot
+    // behaviour); Ctrl+Enter keeps working through its existing QShortcut.
+    if (watched == m_input && event->type() == QEvent::KeyPress) {
+        auto *ke = static_cast<QKeyEvent *>(event);
+        const bool isEnter = ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter;
+        if (isEnter && ke->modifiers() == Qt::NoModifier) {
+            runTranslation();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void MainWindow::runTranslation()

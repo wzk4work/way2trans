@@ -57,6 +57,11 @@ signals:
     // so history records the right source (DESIGN.md §8.2).
     void inputTranslationRequested(const QString &text);
 
+protected:
+    // Enter in the translate input runs the translation; Shift+Enter inserts a
+    // newline (Bob/Pot behaviour, DESIGN.md §3.3).
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     QWidget *buildTranslatePage();
     QWidget *buildHistoryPage();
