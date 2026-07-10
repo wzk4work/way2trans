@@ -192,6 +192,7 @@ int Application::runAsPrimary(const CliAction &initialAction)
     m_mainWindow->setServices(m_translateService, m_libraryService);
     connect(m_mainWindow.get(), &MainWindow::inputTranslationRequested, this, [this](const QString &text) {
         m_currentTrigger = QStringLiteral("input");
+        m_popupSourceEditable = false;
         m_translateService->translate(text);
     });
     // Settings is a page inside the main window now. Inject the connectivity
@@ -370,6 +371,7 @@ void Application::setupServices()
     // Editing the recognised text in the OCR popup re-runs the translation.
     connect(m_popup.get(), &PopupWindow::sourceEdited, this, [this](const QString &newText) {
         m_currentTrigger = QStringLiteral("input"); // an edited re-translation
+        m_popupSourceEditable = true; // keep the source editable across re-runs
         m_translateService->translate(newText);
     });
     // Vocabulary star: save/remove the current word (DESIGN.md §8.3).
@@ -395,7 +397,7 @@ void Application::setupServices()
                 names.insert(id, m_translateService->engineDisplayName(id));
             // The source box is editable only for the screenshot/OCR flow so the
             // user can correct a misrecognition and re-translate (DESIGN.md §3.2).
-            m_popup->beginRequest(req, ids, names, m_captureInProgress);
+            m_popup->beginRequest(req, ids, names, m_popupSourceEditable);
         });
     connect(m_translateService, &TranslateService::partialResult, this,
         [this](const QString &engineId, const QString &delta) { m_popup->applyPartial(engineId, delta); });
@@ -496,9 +498,13 @@ void Application::setupServices()
             m_popup->activateWindow();
         }
         m_currentTrigger = QStringLiteral("capture");
+        // The capture flow is done once translation is kicked off: release the
+        // re-entry guard so the hotkey can start a new capture. Editability of
+        // the popup source is a separate flag — it stays on so the user can
+        // correct the recognised text and re-translate.
+        m_captureInProgress = false;
+        m_popupSourceEditable = true;
         m_translateService->translate(text);
-        // The flow is done once translation is kicked off; the editable-source
-        // flag stays true until the next capture so re-translation on edit works.
     });
     connect(m_ocrService, &OcrService::failed, this, [this](const QString &reason) {
         qCWarning(w2tApp) << "OCR failed:" << reason;
@@ -529,6 +535,7 @@ void Application::translateSelectionText(const QString &text)
         m_popup->activateWindow();
     }
     m_currentTrigger = QStringLiteral("selection");
+    m_popupSourceEditable = false;
     m_translateService->translate(text);
 }
 

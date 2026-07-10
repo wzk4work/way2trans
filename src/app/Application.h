@@ -137,7 +137,8 @@ private:
     OcrService *m_ocrService = nullptr; // owned via parent = this
     QList<CaptureOverlay *> m_overlays; // live overlays (WA_DeleteOnClose)
     QRect m_captureAnchor; // selection rect for popup placement
-    bool m_captureInProgress = false;
+    bool m_captureInProgress = false; // re-entry guard: overlay/OCR still running
+    bool m_popupSourceEditable = false; // popup shows an editable source (OCR flow)
 
     // Debounces SettingsPage::enginesChanged into reloadEngines(), so typing an
     // API key doesn't rebuild the engine set on every keystroke.
