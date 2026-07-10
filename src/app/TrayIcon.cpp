@@ -98,6 +98,14 @@ void TrayIcon::notifyNoSelection()
     }
 }
 
+void TrayIcon::notifyClipboardEmpty()
+{
+    if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
+        m_tray->showMessage(
+            QStringLiteral("way2trans"), tr("Clipboard has no text"), QSystemTrayIcon::Information, 1500);
+    }
+}
+
 void TrayIcon::notifyOcrUnavailable(const QString &hint)
 {
     if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {

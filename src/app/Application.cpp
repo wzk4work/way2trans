@@ -562,6 +562,11 @@ void Application::translateSelectionText(const QString &text)
         return;
     }
 
+    startPopupTranslation(text, QStringLiteral("selection"));
+}
+
+void Application::startPopupTranslation(const QString &text, const QString &trigger)
+{
     // Show the popup (skeleton) at the cursor before results arrive, then kick
     // off the translation.
     if (m_popup && m_popupPlacement) {
@@ -570,7 +575,7 @@ void Application::translateSelectionText(const QString &text)
         m_popup->raise();
         m_popup->activateWindow();
     }
-    m_currentTrigger = QStringLiteral("selection");
+    m_currentTrigger = trigger;
     m_popupSourceEditable = false;
     m_translateService->translate(text);
 }
@@ -701,7 +706,17 @@ void Application::closeOverlays()
 
 void Application::triggerClipboard()
 {
-    qCInfo(w2tApp) << "triggerClipboard (M0 stub)";
+    // CLIPBOARD (not PRIMARY) through the same popup flow — the fallback entry
+    // for environments where selection fetching is unavailable (DESIGN.md §3.3).
+    qCInfo(w2tApp) << "triggerClipboard";
+    const QString text = QApplication::clipboard()->text(QClipboard::Clipboard);
+    if (text.trimmed().isEmpty()) {
+        qCInfo(w2tApp) << "clipboard empty; showing nothing";
+        if (m_tray && m_tray->isAvailable())
+            m_tray->notifyClipboardEmpty();
+        return;
+    }
+    startPopupTranslation(text, QStringLiteral("clipboard"));
 }
 
 void Application::showMainWindow()

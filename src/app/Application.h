@@ -109,6 +109,9 @@ private:
     void setupServices();
 
     // Show the result popup near the cursor and kick off a translation.
+    // `trigger` is the history trigger tag: selection | clipboard.
+    void startPopupTranslation(const QString &text, const QString &trigger);
+    // The selection flow on top of it: empty selections get a tray hint.
     void translateSelectionText(const QString &text);
 
     // Run a one-shot "hello" through a throwaway engine instance and report

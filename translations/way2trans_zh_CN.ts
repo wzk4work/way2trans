@@ -4,27 +4,27 @@
 <context>
     <name>Application</name>
     <message>
-        <location filename="../src/app/Application.cpp" line="472"/>
+        <location filename="../src/app/Application.cpp" line="471"/>
         <source>Translate selection</source>
         <translation>翻译选中文本</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="483"/>
+        <location filename="../src/app/Application.cpp" line="482"/>
         <source>Translate screenshot</source>
         <translation>截图翻译</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="494"/>
+        <location filename="../src/app/Application.cpp" line="493"/>
         <source>Screenshot OCR to clipboard</source>
         <translation>截图 OCR 到剪贴板</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="738"/>
+        <location filename="../src/app/Application.cpp" line="752"/>
         <source>Unknown engine</source>
         <translation>未知引擎</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="751"/>
+        <location filename="../src/app/Application.cpp" line="765"/>
         <source>Timed out</source>
         <translation>超时</translation>
     </message>
@@ -919,17 +919,22 @@
         <translation>设置…</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="104"/>
+        <location filename="../src/app/TrayIcon.cpp" line="105"/>
+        <source>Clipboard has no text</source>
+        <translation>剪贴板中没有文本</translation>
+    </message>
+    <message>
+        <location filename="../src/app/TrayIcon.cpp" line="112"/>
         <source>Screenshot translation is unavailable</source>
         <translation>截图翻译不可用</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="112"/>
+        <location filename="../src/app/TrayIcon.cpp" line="120"/>
         <source>Copied to clipboard</source>
         <translation>已复制到剪贴板</translation>
     </message>
     <message>
-        <location filename="../src/app/TrayIcon.cpp" line="120"/>
+        <location filename="../src/app/TrayIcon.cpp" line="128"/>
         <source>No text was recognised</source>
         <translation>未识别到文本</translation>
     </message>

@@ -27,6 +27,9 @@ public:
     // Light "no selected text" hint (DESIGN.md §3.1: silent or gentle prompt).
     void notifyNoSelection();
 
+    // Same, for the clipboard-translation entry when the clipboard is empty.
+    void notifyClipboardEmpty();
+
     // Surface an OCR-unavailable / failure hint for screenshot translation
     // (DESIGN.md §3.2, §6): shown when no OCR backend is usable or all failed.
     void notifyOcrUnavailable(const QString &hint);
