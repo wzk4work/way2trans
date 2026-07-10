@@ -138,62 +138,78 @@ MainWindow::MainWindow(QWidget *parent)
     // Rounded, popup-consistent styling for inputs, lists and buttons; the
     // engine result cards reuse the exact popup card style (CardStyle.h).
     setStyleSheet(
-        QStringLiteral("QPlainTextEdit, QLineEdit, QTextBrowser, QListView {"
-                       "  background: palette(base);"
-                       "  border: 1px solid palette(midlight);"
-                       "  border-radius: 8px;"
-                       "  padding: 6px 8px;"
-                       "}"
-                       "QComboBox {"
-                       "  background: palette(base);"
-                       "  border: 1px solid palette(midlight);"
-                       "  border-radius: 8px;"
-                       "  padding: 4px 8px;"
-                       "}"
-                       "QListView::item { padding: 5px; border-radius: 6px; }"
-                       "QListView::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
-                       "QScrollArea { border: none; background: transparent; }"
-                       "QScrollArea > QWidget > QWidget { background: transparent; }"
-                       "QPushButton {"
-                       "  background: palette(button);"
-                       "  border: 1px solid palette(mid);"
-                       "  border-radius: 8px;"
-                       "  padding: 6px 14px;"
-                       "}"
-                       "QPushButton:hover { background: palette(midlight); }"
-                       "QPushButton:pressed { background: palette(mid); }"
-                       "QToolButton { border: none; border-radius: 6px; padding: 3px 8px; }"
-                       "QToolButton:hover { background: palette(midlight); }"
-                       // Sidebar navigation: flat list on the window background
-                       // with a hairline splitting it from the page area.
-                       "#mainNav {"
-                       "  background: transparent;"
-                       "  border: none;"
-                       "  border-right: 1px solid palette(midlight);"
-                       "  padding: 6px 2px;"
-                       "  font-size: 13px;"
-                       "}"
-                       "#mainNav::item { padding: 9px 12px; border-radius: 8px; margin: 1px 4px; }"
-                       "#mainNav::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
-                       // The settings group header: quiet label, extra gap above.
-                       "#mainNav::item:disabled { color: palette(mid); margin-top: 10px; padding: 2px 12px; }"
-                       // Input card: the rounded surface is the card, so the
-                       // text edit inside stays flat and transparent.
-                       "#inputCard {"
-                       "  background: palette(base);"
-                       "  border: 1px solid palette(midlight);"
-                       "  border-radius: 10px;"
-                       "}"
-                       "#translateInput { background: transparent; border: none; padding: 0; }"
-                       "#langHint { color: palette(mid); font-size: 11px; }"
-                       "QPushButton#primaryButton {"
-                       "  background: palette(highlight);"
-                       "  color: palette(highlighted-text);"
-                       "  border: none;"
-                       "  border-radius: 8px;"
-                       "  padding: 6px 18px;"
-                       "  font-weight: 600;"
-                       "}")
+        QStringLiteral(
+            "QPlainTextEdit, QLineEdit, QTextBrowser, #contentList {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 8px;"
+            "  padding: 6px 8px;"
+            "}"
+            "QComboBox {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 8px;"
+            "  padding: 4px 8px;"
+            "}"
+            // Styling QComboBox with a box model makes Qt render its
+            // popup like a menu; without an explicit ::item:selected
+            // rule the current row paints highlighted-text on the
+            // base background — i.e. invisible white-on-white.
+            "QComboBox QAbstractItemView {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "}"
+            "QComboBox::item:selected {"
+            "  background: palette(highlight);"
+            "  color: palette(highlighted-text);"
+            "}"
+            // Card styling for the history/vocab lists only; a bare
+            // QListView selector would leak into combo popups (their
+            // list is a QListView too) and wreck item geometry.
+            "#contentList::item { padding: 5px; border-radius: 6px; }"
+            "#contentList::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+            "QScrollArea { border: none; background: transparent; }"
+            "QScrollArea > QWidget > QWidget { background: transparent; }"
+            "QPushButton {"
+            "  background: palette(button);"
+            "  border: 1px solid palette(mid);"
+            "  border-radius: 8px;"
+            "  padding: 6px 14px;"
+            "}"
+            "QPushButton:hover { background: palette(midlight); }"
+            "QPushButton:pressed { background: palette(mid); }"
+            "QToolButton { border: none; border-radius: 6px; padding: 3px 8px; }"
+            "QToolButton:hover { background: palette(midlight); }"
+            // Sidebar navigation: flat list on the window background
+            // with a hairline splitting it from the page area.
+            "#mainNav {"
+            "  background: transparent;"
+            "  border: none;"
+            "  border-right: 1px solid palette(midlight);"
+            "  padding: 6px 2px;"
+            "  font-size: 13px;"
+            "}"
+            "#mainNav::item { padding: 9px 12px; border-radius: 8px; margin: 1px 4px; }"
+            "#mainNav::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+            // The settings group header: quiet label, extra gap above.
+            "#mainNav::item:disabled { color: palette(mid); margin-top: 10px; padding: 2px 12px; }"
+            // Input card: the rounded surface is the card, so the
+            // text edit inside stays flat and transparent.
+            "#inputCard {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 10px;"
+            "}"
+            "#translateInput { background: transparent; border: none; padding: 0; }"
+            "#langHint { color: palette(mid); font-size: 11px; }"
+            "QPushButton#primaryButton {"
+            "  background: palette(highlight);"
+            "  color: palette(highlighted-text);"
+            "  border: none;"
+            "  border-radius: 8px;"
+            "  padding: 6px 18px;"
+            "  font-weight: 600;"
+            "}")
         + w2t::ui::cardStyleSheet());
 }
 
@@ -277,6 +293,7 @@ QWidget *MainWindow::buildHistoryPage()
     layout->addWidget(m_historySearch);
 
     m_historyView = new QListView(page);
+    m_historyView->setObjectName(QStringLiteral("contentList"));
     m_historyView->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(m_historyView, 1);
     return page;
@@ -314,6 +331,7 @@ QWidget *MainWindow::buildVocabPage()
 
     auto *split = new QHBoxLayout;
     m_vocabView = new QListView(page);
+    m_vocabView->setObjectName(QStringLiteral("contentList"));
     split->addWidget(m_vocabView, 1);
     m_vocabDetail = new QTextBrowser(page);
     split->addWidget(m_vocabDetail, 1);
