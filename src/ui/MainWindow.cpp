@@ -8,6 +8,7 @@
 #include "ServicesPage.h"
 #include "SettingsSections.h"
 #include "TranslateService.h"
+#include "VocabItemDelegate.h"
 #include "VocabModel.h"
 
 #include <QApplication>
@@ -195,14 +196,14 @@ MainWindow::MainWindow(QWidget *parent)
             "#mainNav::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
             // The settings group header: quiet label, extra gap above.
             "#mainNav::item:disabled { color: palette(mid); margin-top: 10px; padding: 2px 12px; }"
-            // History list card: the frame carries the rounded border,
-            // the list inside is flat (same pattern as #inputCard).
+            // History/vocabulary list cards: the frame carries the rounded
+            // border, the list inside is flat (same pattern as #inputCard).
             "#listCard {"
             "  background: palette(base);"
             "  border: 1px solid palette(midlight);"
             "  border-radius: 8px;"
             "}"
-            "#historyList { background: transparent; border: none; }"
+            "#historyList, #vocabList { background: transparent; border: none; }"
             // Input card: the rounded surface is the card, so the
             // text edit inside stays flat and transparent.
             "#inputCard {"
@@ -357,9 +358,25 @@ QWidget *MainWindow::buildVocabPage()
     layout->addLayout(controls);
 
     auto *split = new QHBoxLayout;
-    m_vocabView = new QListView(page);
-    m_vocabView->setObjectName(QStringLiteral("contentList"));
-    split->addWidget(m_vocabView, 1);
+    // Same card pattern as the history page: the frame owns the rounded
+    // border, the list inside stays flat and unpadded.
+    auto *card = new QFrame(page);
+    card->setObjectName(QStringLiteral("listCard"));
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(4, 4, 4, 4);
+
+    m_vocabView = new QListView(card);
+    m_vocabView->setObjectName(QStringLiteral("vocabList"));
+    m_vocabView->setItemDelegate(new VocabItemDelegate(m_vocabView, m_vocabView));
+    // The delegate sizes rows to the viewport; Adjust re-lays them out on
+    // resize, so the horizontal scrollbar can go away entirely.
+    m_vocabView->setResizeMode(QListView::Adjust);
+    m_vocabView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_vocabView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_vocabView->setMouseTracking(true); // hover state for the delegate
+    m_vocabView->setFrameShape(QFrame::NoFrame);
+    cardLayout->addWidget(m_vocabView);
+    split->addWidget(card, 1);
     m_vocabDetail = new QTextBrowser(page);
     split->addWidget(m_vocabDetail, 1);
     layout->addLayout(split, 1);

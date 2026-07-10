@@ -14,6 +14,8 @@ add_library(way2trans_ui STATIC
     HistoryItemDelegate.h
     HistoryModel.cpp
     HistoryModel.h
+    VocabItemDelegate.cpp
+    VocabItemDelegate.h
     VocabModel.cpp
     VocabModel.h
     ServicesPage.cpp
