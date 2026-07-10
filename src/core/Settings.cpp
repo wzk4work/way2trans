@@ -85,6 +85,19 @@ void Settings::setValue(const QString &key, const QVariant &value)
     m_settings->setValue(key, value);
 }
 
+QStringList Settings::childGroups(const QString &group) const
+{
+    m_settings->beginGroup(group);
+    const QStringList groups = m_settings->childGroups();
+    m_settings->endGroup();
+    return groups;
+}
+
+void Settings::remove(const QString &keyOrGroup)
+{
+    m_settings->remove(keyOrGroup);
+}
+
 void Settings::sync()
 {
     m_settings->sync();

@@ -13,10 +13,6 @@
 
 namespace {
 constexpr auto kEngineId = "llm";
-constexpr auto kKeyEndpoint = "engines/llm/endpoint";
-constexpr auto kKeyApiKey = "engines/llm/apiKey";
-constexpr auto kKeyModel = "engines/llm/model";
-constexpr auto kKeyPrompt = "engines/llm/prompt";
 
 constexpr auto kDefaultEndpoint = "https://api.openai.com/v1";
 // Placeholder model: the user is expected to set a real one in Settings.
@@ -35,20 +31,14 @@ LlmEngine::LlmEngine(QNetworkAccessManager *nam, QObject *parent)
     , m_nam(nam)
 { }
 
-QString LlmEngine::id() const
+QString LlmEngine::typeId() const
 {
     return QString::fromLatin1(kEngineId);
 }
 
-QString LlmEngine::displayName() const
+QString LlmEngine::typeName() const
 {
     return QStringLiteral("LLM");
-}
-
-QStringList LlmEngine::configKeys() const
-{
-    return {QString::fromLatin1(kKeyEndpoint), QString::fromLatin1(kKeyApiKey), QString::fromLatin1(kKeyModel),
-        QString::fromLatin1(kKeyPrompt)};
 }
 
 QString LlmEngine::defaultPromptTemplate()
@@ -105,27 +95,26 @@ void LlmEngine::translate(const TranslateRequest &req)
     m_done = false;
 
     Settings &settings = Settings::instance();
-    const QString apiKey = settings.value(QString::fromLatin1(kKeyApiKey)).toString().trimmed();
-    if (apiKey.isEmpty()) {
-        TranslateResult r;
-        r.engineId = QString::fromLatin1(kEngineId);
-        r.error = tr("Set an LLM API key in Settings to use this engine");
-        qCInfo(w2tEngines) << "llm: no API key configured; skipping network";
-        QMetaObject::invokeMethod(this, [this, r]() { emit resultReady(r); }, Qt::QueuedConnection);
-        return;
-    }
+    const QString group = configGroup() + QLatin1Char('/');
+    // No API key is a valid setup for local OpenAI-compatible servers (Ollama,
+    // llama.cpp): send without an Authorization header and let the server
+    // decide. Hosted providers will reject unauthenticated calls with a clear
+    // error that surfaces on the result card.
+    const QString apiKey = settings.value(group + QStringLiteral("apiKey")).toString().trimmed();
 
-    QString endpoint
-        = settings.value(QString::fromLatin1(kKeyEndpoint), QString::fromLatin1(kDefaultEndpoint)).toString().trimmed();
+    QString endpoint = settings.value(group + QStringLiteral("endpoint"), QString::fromLatin1(kDefaultEndpoint))
+                           .toString()
+                           .trimmed();
     while (endpoint.endsWith(QLatin1Char('/')))
         endpoint.chop(1);
     const QString model
-        = settings.value(QString::fromLatin1(kKeyModel), QString::fromLatin1(kDefaultModel)).toString().trimmed();
-    const QString tmpl = settings.value(QString::fromLatin1(kKeyPrompt), defaultPromptTemplate()).toString();
+        = settings.value(group + QStringLiteral("model"), QString::fromLatin1(kDefaultModel)).toString().trimmed();
+    const QString tmpl = settings.value(group + QStringLiteral("prompt"), defaultPromptTemplate()).toString();
 
     QNetworkRequest request(QUrl(endpoint + QStringLiteral("/chat/completions")));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    request.setRawHeader("Authorization", QByteArrayLiteral("Bearer ") + apiKey.toUtf8());
+    if (!apiKey.isEmpty())
+        request.setRawHeader("Authorization", QByteArrayLiteral("Bearer ") + apiKey.toUtf8());
     request.setRawHeader("Accept", QByteArrayLiteral("text/event-stream"));
 
     QJsonObject message;
@@ -153,7 +142,7 @@ void LlmEngine::translate(const TranslateRequest &req)
         m_reply.clear();
 
         TranslateResult r;
-        r.engineId = QString::fromLatin1(kEngineId);
+        r.engineId = id();
         if (reply->error() != QNetworkReply::NoError && !m_done) {
             r.error = tr("Network error: %1").arg(reply->errorString());
             qCWarning(w2tEngines) << "llm network error" << reply->errorString();

@@ -46,7 +46,6 @@ void TestBingEngine::parsesTranslationArray()
         = R"([{"detectedLanguage":{"language":"en","score":1.0},"translations":[{"text":"你好","to":"zh-Hans"}]}])";
     const TranslateResult r = BingWebEngine::parseResponse(body);
     QVERIFY(r.ok());
-    QCOMPARE(r.engineId, QStringLiteral("bing"));
     QCOMPARE(r.translatedText, QStringLiteral("你好"));
     QCOMPARE(r.detectedSourceLang, QStringLiteral("en"));
 }

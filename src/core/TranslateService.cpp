@@ -2,14 +2,13 @@
 
 #include "LangDetector.h"
 #include "Logging.h"
+#include "ServiceInstances.h"
 #include "Settings.h"
 #include "TextCleaner.h"
 #include "engines/EngineRegistry.h"
 #include "engines/TranslateEngine.h"
 
 #include <QNetworkAccessManager>
-
-#include <algorithm>
 
 namespace {
 // Results for the same (engine, text) pair are reused within this window.
@@ -33,43 +32,41 @@ void TranslateService::reloadEngines()
     qDeleteAll(m_engines);
     m_engines.clear();
 
-    Settings &settings = Settings::instance();
-
-    // Respect the user-configured display order (engines/<id>/order, written by
-    // the settings page); the default is registry declaration order. Engine
-    // order decides the order of result cards in the popup and main window.
-    std::vector<EngineRegistry::Entry> entries = EngineRegistry::entries();
-    QHash<QString, int> defaultOrder;
-    for (size_t i = 0; i < entries.size(); ++i)
-        defaultOrder.insert(entries.at(i).id, int(i));
-    std::stable_sort(entries.begin(), entries.end(),
-        [&settings, &defaultOrder](const EngineRegistry::Entry &a, const EngineRegistry::Entry &b) {
-            return settings.value(QStringLiteral("engines/%1/order").arg(a.id), defaultOrder.value(a.id)).toInt()
-                < settings.value(QStringLiteral("engines/%1/order").arg(b.id), defaultOrder.value(b.id)).toInt();
-        });
-
-    for (const EngineRegistry::Entry &entry : entries) {
-        const QString key = QStringLiteral("engines/%1/enabled").arg(entry.id);
-        const bool enabled = settings.value(key, entry.defaultEnabled).toBool();
-        if (!enabled)
+    // One engine object per enabled service instance ([services/<uuid>],
+    // Bob/Pot model): the instance list is already in display order, which
+    // decides the order of result cards in the popup and main window.
+    ServiceInstances::ensureSeeded();
+    const QList<ServiceInstance> instances = ServiceInstances::all();
+    for (const ServiceInstance &inst : instances) {
+        if (!inst.enabled)
             continue;
-        TranslateEngine *engine = EngineRegistry::create(entry.id, m_nam, this);
+        TranslateEngine *engine = EngineRegistry::create(inst.engineType, m_nam, this);
         if (!engine)
             continue;
+        engine->setInstance(inst.id, inst.name, ServiceInstances::configGroup(inst.id));
         connect(engine, &TranslateEngine::resultReady, this, [this](const TranslateResult &result) {
             if (result.ok())
                 m_cache.insert(
                     cacheKey(result.engineId, m_lastRequest.text), CacheEntry {result, QDateTime::currentDateTime()});
             emit resultReady(result);
         });
-        // Forward streaming deltas, tagging them with the engine id so the UI can
-        // route them to the right card (LLM streaming, DESIGN.md §5).
+        // Forward streaming deltas, tagging them with the instance id so the UI
+        // can route them to the right card (LLM streaming, DESIGN.md §5).
         const QString engineId = engine->id();
         connect(engine, &TranslateEngine::partialResult, this,
             [this, engineId](const QString &delta) { emit partialResult(engineId, delta); });
         m_engines << engine;
     }
     qCInfo(w2tCore) << "TranslateService active engines:" << activeEngineIds();
+}
+
+QString TranslateService::engineDisplayName(const QString &engineId) const
+{
+    for (const TranslateEngine *e : m_engines) {
+        if (e->id() == engineId)
+            return e->displayName();
+    }
+    return engineId;
 }
 
 QStringList TranslateService::activeEngineIds() const

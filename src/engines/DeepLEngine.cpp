@@ -14,8 +14,6 @@
 
 namespace {
 constexpr auto kEngineId = "deepl";
-// Settings key holding the DeepL Auth Key (DESIGN.md §10 [engines/<id>]).
-constexpr auto kKeyApiKey = "engines/deepl/apiKey";
 
 constexpr auto kFreeHost = "api-free.deepl.com";
 constexpr auto kProHost = "api.deepl.com";
@@ -26,19 +24,14 @@ DeepLEngine::DeepLEngine(QNetworkAccessManager *nam, QObject *parent)
     , m_nam(nam)
 { }
 
-QString DeepLEngine::id() const
+QString DeepLEngine::typeId() const
 {
     return QString::fromLatin1(kEngineId);
 }
 
-QString DeepLEngine::displayName() const
+QString DeepLEngine::typeName() const
 {
     return QStringLiteral("DeepL");
-}
-
-QStringList DeepLEngine::configKeys() const
-{
-    return {QString::fromLatin1(kKeyApiKey)};
 }
 
 QString DeepLEngine::hostForKey(const QString &apiKey)
@@ -75,11 +68,11 @@ void DeepLEngine::translate(const TranslateRequest &req)
 {
     cancel();
 
-    const QString apiKey = Settings::instance().value(QString::fromLatin1(kKeyApiKey)).toString().trimmed();
+    const QString apiKey = Settings::instance().value(configGroup() + QStringLiteral("/apiKey")).toString().trimmed();
     if (apiKey.isEmpty()) {
         // No key configured: fail fast with a hint, never touch the network.
         TranslateResult r;
-        r.engineId = QString::fromLatin1(kEngineId);
+        r.engineId = id();
         r.error = tr("Set a DeepL API key in Settings to use this engine");
         qCInfo(w2tEngines) << "deepl: no API key configured; skipping network";
         QMetaObject::invokeMethod(this, [this, r]() { emit resultReady(r); }, Qt::QueuedConnection);
@@ -109,7 +102,7 @@ void DeepLEngine::translate(const TranslateRequest &req)
 
         if (reply->error() != QNetworkReply::NoError) {
             TranslateResult r;
-            r.engineId = QString::fromLatin1(kEngineId);
+            r.engineId = id();
             // Surface the API's own error body when present (DeepL returns a JSON
             // {"message": ...} for 4xx), otherwise the transport error.
             const TranslateResult parsed = parseResponse(reply->readAll());
@@ -119,7 +112,9 @@ void DeepLEngine::translate(const TranslateRequest &req)
             return;
         }
 
-        emit resultReady(parseResponse(reply->readAll()));
+        TranslateResult parsedResult = parseResponse(reply->readAll());
+        parsedResult.engineId = id();
+        emit resultReady(parsedResult);
     });
 }
 
@@ -133,8 +128,7 @@ void DeepLEngine::cancel()
 
 TranslateResult DeepLEngine::parseResponse(const QByteArray &body)
 {
-    TranslateResult result;
-    result.engineId = QString::fromLatin1(kEngineId);
+    TranslateResult result; // engineId is stamped by the caller (static context)
 
     QJsonParseError err {};
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);

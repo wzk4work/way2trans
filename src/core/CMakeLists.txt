@@ -6,6 +6,8 @@ add_library(way2trans_core STATIC
     Logging.h
     Settings.cpp
     Settings.h
+    ServiceInstances.cpp
+    ServiceInstances.h
     LangDetector.cpp
     LangDetector.h
     TextCleaner.cpp

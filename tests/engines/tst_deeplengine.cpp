@@ -48,7 +48,6 @@ void TestDeepLEngine::parsesTranslation()
     const QByteArray body = R"({"translations":[{"detected_source_language":"EN","text":"你好世界"}]})";
     const TranslateResult r = DeepLEngine::parseResponse(body);
     QVERIFY(r.ok());
-    QCOMPARE(r.engineId, QStringLiteral("deepl"));
     QCOMPARE(r.translatedText, QStringLiteral("你好世界"));
     QCOMPARE(r.detectedSourceLang, QStringLiteral("en"));
 }
@@ -65,7 +64,6 @@ void TestDeepLEngine::invalidBodyYieldsError()
 {
     const TranslateResult r = DeepLEngine::parseResponse(QByteArrayLiteral("<html>nope</html>"));
     QVERIFY(!r.ok());
-    QCOMPARE(r.engineId, QStringLiteral("deepl"));
 }
 
 QTEST_MAIN(TestDeepLEngine)

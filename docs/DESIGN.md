@@ -51,7 +51,7 @@ way2trans 是一个 Linux 桌面翻译工具，对标 macOS 的 Bob，核心能�
 │  TranslateService     │◄──│  PopupWindow(结果弹窗)        │
 │  OcrService           │   │  MainWindow(输入翻译)         │
 │  LangDetector         │   │  CaptureOverlay(截图选区)     │
-│  Settings             │   │  SettingsPage                │
+│  Settings             │   │  ServicesPage/SettingsSections│
 └──┬────────────────┬───┘   └──────────────┬───────────────┘
    │ 接口            │ 接口                 │ 接口
 ┌──▼──────────┐ ┌───▼──────────┐ ┌─────────▼────────────────┐
@@ -286,8 +286,9 @@ signals:
 
 - **PopupWindow**：无边框圆角卡片。顶部原文（可折叠）+ 语言对与切换；下方每个引擎一张结果卡（引擎名、结果、复制按钮、朗读按钮二期）；`Esc`/失焦关闭（layer-shell 下用 keyboard interactivity=on_demand 拿 Esc）。固定态按钮（📌）：钉住后失焦不关。
 - **CaptureOverlay**:全屏截图冻结帧 + 变暗 + 拖拽选框 + 尺寸提示，多屏各一个 overlay。X11 下全屏无边框窗口；Wayland 下 layer-shell overlay 层 + 独占键盘（Esc 取消）。
-- **MainWindow**：左侧导航栏 + 堆叠页（主流划词翻译工具的布局）——翻译（输入翻译）/ 历史 / 生词本（后两者见 §8）/ 设置（SettingsPage）。
-- **SettingsPage**（主窗口内嵌页，左侧二级分区列表）：常规（语言对、启动项）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 服务（每引擎一张可展开卡片：启停、上下移排序、key 配置、连通性测试按钮）/ OCR / 平台（后端探测结果展示与强制覆盖）。引擎配置改动经 app 层防抖后热重载引擎集。
+- **MainWindow**：单列扁平侧栏 + 堆叠页（主流划词翻译工具的布局）——翻译（输入翻译）/ 历史 / 生词本（后两者见 §8），下接「设置」分组标题：常规 / 快捷键 / 服务 / OCR / 平台，无二级导航。
+- **设置页**：常规（语言对、启动项，SettingsSections）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 服务（ServicesPage，见下）/ OCR / 平台（后端探测结果展示与强制覆盖）。配置改动即写即生效；服务相关改动经 app 层防抖后热重载引擎集。
+- **ServicesPage（服务 = 模板 + 多实例，对标 Bob/Pot）**：「添加服务」菜单列出内置模板（Google、Bing、DeepL，以及同一 LLM 引擎的 OpenAI/DeepSeek/Ollama/自定义预设）；每个服务实例一张可展开卡片：改名、启停、上下移排序、删除（确认）、类型自有配置项与连通性测试。同一引擎类型可建多个实例（如两个不同 endpoint 的 LLM）。实例模型见 core/ServiceInstances，存储于 `[services/<uuid>]`；首次启动自动从旧 `[engines/<type>]` 迁移。
 - **TrayIcon**：StatusNotifierItem（Qt 自动走 SNI/D-Bus，KDE/XFCE/Cinnamon 都支持），菜单含各动作入口。
 - 主题跟随系统（Qt 6.5+ `colorScheme`），深浅色两套样式表。
 - **国际化**：所有用户可见字符串用 `tr()`、源串英文；`zh_CN` 翻译随功能同步维护（`translations/way2trans_zh_CN.ts`，构建时 `lrelease` 成 `.qm` 嵌入 `:/i18n`，运行时按系统 locale 加载）。开发规约见 AGENTS.md「国际化」。一期只维护中文，其他语言 M5 补齐。
@@ -363,7 +364,7 @@ CREATE TABLE vocab (
 ## 10. 配置（core/Settings）
 
 - `~/.config/way2trans/way2trans.conf`，QSettings INI，文件权限 0600（含 API key）。
-- 分组：`[general]` 语言对规则、开机自启；`[hotkeys]`；`[engines/<id>]` enabled/order/key…；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置。
+- 分组：`[general]` 语言对规则、开机自启；`[hotkeys]`；`[services/<uuid>]` 服务实例（type/name/enabled/order/key…，旧版 `[engines/<type>]` 首启时自动迁移）；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置。
 - API key 一期明文存本地（0600 + 文档说明），二期可选 QtKeychain。
 - 配置变更全部通过 `Settings` 单例信号广播，无需重启生效。
 

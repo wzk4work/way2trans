@@ -20,7 +20,6 @@ void TestGoogleEngine::parsesSentenceTranslation()
     const QByteArray body = R"([[["你好","hello",null,null,10]],null,"en",null,null,null,1.0,[]])";
     const TranslateResult r = GoogleWebEngine::parseResponse(body);
     QVERIFY(r.ok());
-    QCOMPARE(r.engineId, QStringLiteral("google"));
     QCOMPARE(r.translatedText, QStringLiteral("你好"));
     QCOMPARE(r.detectedSourceLang, QStringLiteral("en"));
 }
@@ -60,7 +59,6 @@ void TestGoogleEngine::invalidBodyYieldsError()
 {
     const TranslateResult r = GoogleWebEngine::parseResponse(QByteArrayLiteral("<html>nope</html>"));
     QVERIFY(!r.ok());
-    QCOMPARE(r.engineId, QStringLiteral("google"));
 }
 
 QTEST_MAIN(TestGoogleEngine)
