@@ -16,6 +16,7 @@
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
@@ -28,6 +29,7 @@
 #include <QScrollArea>
 #include <QShortcut>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QTextBrowser>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -63,8 +65,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_nav = new QListWidget(central);
     m_nav->setObjectName(QStringLiteral("mainNav"));
-    m_nav->setFixedWidth(118);
+    m_nav->setFixedWidth(138);
     m_nav->setFrameShape(QFrame::NoFrame);
+    m_nav->setIconSize(QSize(16, 16));
     rootLayout->addWidget(m_nav);
 
     m_pages = new QStackedWidget(central);
@@ -80,17 +83,32 @@ MainWindow::MainWindow(QWidget *parent)
         area->setWidget(page);
         return area;
     };
-    auto addPage = [this](const QString &label, QWidget *page) {
-        auto *item = new QListWidgetItem(label, m_nav);
+    // Nav icons come from the system icon theme so they follow the user's
+    // desktop (Breeze, Adwaita, Papirus, …). Name coverage differs between
+    // themes, so each entry tries a list of freedesktop names; the QStyle
+    // standard icon guarantees something renders even without a theme.
+    auto navIcon = [this](std::initializer_list<const char *> names, QStyle::StandardPixmap fallback) {
+        for (const char *name : names) {
+            const QIcon icon = QIcon::fromTheme(QLatin1String(name));
+            if (!icon.isNull())
+                return icon;
+        }
+        return style()->standardIcon(fallback);
+    };
+    auto addPage = [this](const QIcon &icon, const QString &label, QWidget *page) {
+        auto *item = new QListWidgetItem(icon, label, m_nav);
         item->setData(Qt::UserRole, m_pages->count());
         m_pages->addWidget(page);
     };
 
     m_servicesPage = new ServicesPage(central);
 
-    addPage(tr("Translate"), buildTranslatePage());
-    addPage(tr("History"), buildHistoryPage());
-    addPage(tr("Vocabulary"), buildVocabPage());
+    addPage(navIcon({"translate", "translator", "preferences-desktop-locale"}, QStyle::SP_FileDialogContentsView),
+        tr("Translate"), buildTranslatePage());
+    addPage(
+        navIcon({"view-history", "document-open-recent"}, QStyle::SP_BrowserReload), tr("History"), buildHistoryPage());
+    addPage(navIcon({"accessories-dictionary", "address-book-new"}, QStyle::SP_FileDialogDetailedView),
+        tr("Vocabulary"), buildVocabPage());
 
     // Non-selectable group header separating the settings sections.
     auto *header = new QListWidgetItem(tr("Settings"), m_nav);
@@ -100,11 +118,16 @@ MainWindow::MainWindow(QWidget *parent)
     header->setFont(headerFont);
 
     m_firstSettingsRow = m_nav->count();
-    addPage(tr("General"), scrolled(w2t::ui::buildGeneralPage(this)));
-    addPage(tr("Hotkeys"), scrolled(w2t::ui::buildHotkeysPage(this)));
-    addPage(tr("Services"), scrolled(m_servicesPage));
-    addPage(tr("OCR"), scrolled(w2t::ui::buildOcrPage(this)));
-    addPage(tr("Platform"), scrolled(w2t::ui::buildPlatformPage(this)));
+    addPage(navIcon({"preferences-system", "configure"}, QStyle::SP_FileDialogListView), tr("General"),
+        scrolled(w2t::ui::buildGeneralPage(this)));
+    addPage(navIcon({"preferences-desktop-keyboard", "input-keyboard"}, QStyle::SP_DesktopIcon), tr("Hotkeys"),
+        scrolled(w2t::ui::buildHotkeysPage(this)));
+    addPage(navIcon({"network-server", "applications-internet", "globe"}, QStyle::SP_DriveNetIcon), tr("Services"),
+        scrolled(m_servicesPage));
+    addPage(navIcon({"document-scan", "scanner", "camera-photo"}, QStyle::SP_FileDialogContentsView), tr("OCR"),
+        scrolled(w2t::ui::buildOcrPage(this)));
+    addPage(navIcon({"computer", "video-display"}, QStyle::SP_ComputerIcon), tr("Platform"),
+        scrolled(w2t::ui::buildPlatformPage(this)));
 
     connect(m_nav, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *current, QListWidgetItem *) {
         if (current)
