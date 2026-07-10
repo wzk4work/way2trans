@@ -42,10 +42,14 @@ QWidget *buildGeneralPage(QWidget *parent)
     auto *form = new QFormLayout(page);
     Settings &s = Settings::instance();
 
-    // Target-language rule (one rule implemented in M1; kept as a visible knob).
+    // Target-language rule. The fixed-target options double as an escape
+    // hatch when automatic script detection misfires (e.g. OCR noise).
     auto *rule = new QComboBox(page);
     rule->addItem(SettingsSections::tr("Chinese ↔ English (auto)"), QStringLiteral("zh-en"));
-    rule->setCurrentIndex(0);
+    rule->addItem(SettingsSections::tr("Always translate to Chinese"), QStringLiteral("to-zh"));
+    rule->addItem(SettingsSections::tr("Always translate to English"), QStringLiteral("to-en"));
+    const QString savedRule = s.value(QStringLiteral("general/targetLangRule"), QStringLiteral("zh-en")).toString();
+    rule->setCurrentIndex(qMax(0, rule->findData(savedRule)));
     QObject::connect(rule, &QComboBox::currentIndexChanged, page,
         [rule]() { Settings::instance().setValue(QStringLiteral("general/targetLangRule"), rule->currentData()); });
     form->addRow(SettingsSections::tr("Language pair rule:"), rule);

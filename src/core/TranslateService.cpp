@@ -79,11 +79,17 @@ QStringList TranslateService::activeEngineIds() const
 
 QString TranslateService::targetLangFor(const QString &sourceLang)
 {
-    // One-period hard-coded rule (reserved as a Settings key for later): a
-    // Chinese source translates to English, everything else to Chinese.
+    // Settings -> General "language pair rule". The fixed-target rules exist
+    // mainly as an escape hatch for when script detection can't be trusted
+    // (OCR noise): they pin the target no matter what the source looks like.
     const QString rule
         = Settings::instance().value(QStringLiteral("general/targetLangRule"), QStringLiteral("zh-en")).toString();
-    Q_UNUSED(rule); // only one rule implemented in M1
+    if (rule == QLatin1String("to-zh"))
+        return QStringLiteral("zh-CN");
+    if (rule == QLatin1String("to-en"))
+        return QStringLiteral("en");
+    // Default "zh-en": a Chinese source translates to English, everything
+    // else to Chinese.
     if (sourceLang.startsWith(QStringLiteral("zh")))
         return QStringLiteral("en");
     return QStringLiteral("zh-CN");
