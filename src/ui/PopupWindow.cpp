@@ -2,9 +2,12 @@
 
 #include "CardStyle.h"
 #include "EngineResultCard.h"
+#include "LangOptions.h"
+#include "Settings.h"
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QEvent>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
@@ -78,6 +81,21 @@ PopupWindow::PopupWindow(QWidget *parent)
     m_langPairLabel = new QLabel(m_container);
     m_langPairLabel->setObjectName(QStringLiteral("langPair"));
     titleRow->addWidget(m_langPairLabel, 0, Qt::AlignVCenter);
+    titleRow->addSpacing(4);
+
+    // Target-language quick switch (Bob-style): writes the global rule and
+    // asks for a re-run. activated() only fires on user picks, so beginRequest
+    // can set the current item without a signal-blocking dance.
+    m_targetCombo = new QComboBox(m_container);
+    m_targetCombo->setObjectName(QStringLiteral("popupLangCombo"));
+    w2t::ui::populateTargetRuleCombo(m_targetCombo);
+    m_targetCombo->setCursor(Qt::PointingHandCursor);
+    m_targetCombo->setToolTip(tr("Target language — switching re-translates"));
+    connect(m_targetCombo, &QComboBox::activated, this, [this]() {
+        Settings::instance().setValue(QStringLiteral("general/targetLangRule"), m_targetCombo->currentData());
+        emit targetLangChanged();
+    });
+    titleRow->addWidget(m_targetCombo, 0, Qt::AlignVCenter);
     titleRow->addSpacing(6);
 
     // Vocabulary star: shown only for single-word lookups (DESIGN.md §8.3).
@@ -229,6 +247,24 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "  padding: 2px 8px;"
                                  "  font-size: 11px;"
                                  "}"
+                                 // Compact combo; a box model on QComboBox flips
+                                 // Qt to menu-style popup rendering, so the
+                                 // ::item:selected rule is mandatory (AGENTS.md).
+                                 "QComboBox#popupLangCombo {"
+                                 "  background: palette(base);"
+                                 "  border: 1px solid palette(midlight);"
+                                 "  border-radius: 6px;"
+                                 "  padding: 1px 6px;"
+                                 "  font-size: 11px;"
+                                 "}"
+                                 "QComboBox#popupLangCombo QAbstractItemView {"
+                                 "  background: palette(base);"
+                                 "  border: 1px solid palette(midlight);"
+                                 "}"
+                                 "QComboBox#popupLangCombo::item:selected {"
+                                 "  background: palette(highlight);"
+                                 "  color: palette(highlighted-text);"
+                                 "}"
                                  "QToolButton#iconButton {"
                                  "  border: none;"
                                  "  background: transparent;"
@@ -269,7 +305,9 @@ void PopupWindow::beginRequest(const TranslateRequest &request, const QStringLis
     } else {
         m_sourceLabel->setText(request.text);
     }
-    m_langPairLabel->setText(QStringLiteral("%1 → %2").arg(request.sourceLang, request.targetLang));
+    // Source badge + the resolved target in the switchable combo.
+    m_langPairLabel->setText(QStringLiteral("%1 →").arg(request.sourceLang));
+    w2t::ui::selectTargetRule(m_targetCombo, QStringLiteral("to:") + request.targetLang);
 
     for (const QString &id : engineIds) {
         auto *card = new EngineResultCard(id, engineNames.value(id, id), m_container);

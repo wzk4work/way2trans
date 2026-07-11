@@ -6,6 +6,7 @@
 #include <QPoint>
 #include <QWidget>
 
+class QComboBox;
 class QHBoxLayout;
 class QVBoxLayout;
 class QFrame;
@@ -61,6 +62,11 @@ signals:
     // (Ctrl+Enter or focus-out), asking for a re-translation of the new text.
     void sourceEdited(const QString &newText);
 
+    // Emitted after the user picked a different target language in the title
+    // bar (the popup has already written the rule to Settings): re-run the
+    // current request so the results switch language.
+    void targetLangChanged();
+
     // Emitted when the star is toggled on: save the current word to the
     // vocabulary. `context` is the full source text (the sentence for a
     // whole-sentence selection, DESIGN.md §8.3).
@@ -96,7 +102,8 @@ private:
     QHBoxLayout *m_titleRow = nullptr; // fixed chrome above the scroll area
     QLabel *m_sourceLabel = nullptr;
     QPlainTextEdit *m_sourceEdit = nullptr; // editable source (OCR flow)
-    QLabel *m_langPairLabel = nullptr;
+    QLabel *m_langPairLabel = nullptr; // source side: "auto →" / "ja →"
+    QComboBox *m_targetCombo = nullptr; // target side, switchable (re-translates)
     QToolButton *m_starButton = nullptr; // vocabulary ☆/★ (word lookups)
     QToolButton *m_pinButton = nullptr;
     QToolButton *m_closeButton = nullptr;

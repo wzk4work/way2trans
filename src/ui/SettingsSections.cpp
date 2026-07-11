@@ -1,5 +1,6 @@
 #include "SettingsSections.h"
 
+#include "LangOptions.h"
 #include "Settings.h"
 
 #include <QApplication>
@@ -42,17 +43,17 @@ QWidget *buildGeneralPage(QWidget *parent)
     auto *form = new QFormLayout(page);
     Settings &s = Settings::instance();
 
-    // Target-language rule. The fixed-target options double as an escape
-    // hatch when automatic script detection misfires (e.g. OCR noise).
+    // Target-language rule: the automatic Chinese ↔ English pair or a pinned
+    // target (shared option list with the translate page and popup combos).
+    // A pinned target also doubles as an escape hatch when script detection
+    // misfires (e.g. OCR noise).
     auto *rule = new QComboBox(page);
-    rule->addItem(SettingsSections::tr("Chinese ↔ English (auto)"), QStringLiteral("zh-en"));
-    rule->addItem(SettingsSections::tr("Always translate to Chinese"), QStringLiteral("to-zh"));
-    rule->addItem(SettingsSections::tr("Always translate to English"), QStringLiteral("to-en"));
-    const QString savedRule = s.value(QStringLiteral("general/targetLangRule"), QStringLiteral("zh-en")).toString();
-    rule->setCurrentIndex(qMax(0, rule->findData(savedRule)));
+    w2t::ui::populateTargetRuleCombo(rule);
+    w2t::ui::selectTargetRule(
+        rule, s.value(QStringLiteral("general/targetLangRule"), QStringLiteral("zh-en")).toString());
     QObject::connect(rule, &QComboBox::currentIndexChanged, page,
         [rule]() { Settings::instance().setValue(QStringLiteral("general/targetLangRule"), rule->currentData()); });
-    form->addRow(SettingsSections::tr("Language pair rule:"), rule);
+    form->addRow(SettingsSections::tr("Translate to:"), rule);
 
     auto *autostart = new QCheckBox(SettingsSections::tr("Start way2trans at login"), page);
     autostart->setChecked(s.autostart());

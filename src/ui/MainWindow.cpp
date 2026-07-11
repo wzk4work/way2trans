@@ -4,8 +4,10 @@
 #include "EngineResultCard.h"
 #include "HistoryItemDelegate.h"
 #include "HistoryModel.h"
+#include "LangOptions.h"
 #include "LibraryService.h"
 #include "ServicesPage.h"
+#include "Settings.h"
 #include "SettingsSections.h"
 #include "TranslateService.h"
 #include "VocabItemDelegate.h"
@@ -265,12 +267,18 @@ QWidget *MainWindow::buildTranslatePage()
     connect(clearButton, &QToolButton::clicked, this, [this]() { m_input->clear(); });
     toolbar->addStretch();
 
-    // The language rule is a global setting for now (Settings → General); shown
-    // here so the pair is visible where translation happens.
-    auto *langHint = new QLabel(tr("Auto · Chinese ↔ English"), inputCard);
-    langHint->setObjectName(QStringLiteral("langHint"));
-    langHint->setToolTip(tr("Language pair rule — change it in Settings → General"));
-    toolbar->addWidget(langHint);
+    // Quick target-language switch, bound to the global rule (same setting as
+    // Settings → General); takes effect from the next translation.
+    auto *langCombo = new QComboBox(inputCard);
+    w2t::ui::populateTargetRuleCombo(langCombo);
+    w2t::ui::selectTargetRule(
+        langCombo, Settings::instance().value(QStringLiteral("general/targetLangRule")).toString());
+    langCombo->setToolTip(tr("Target language — applies from the next translation"));
+    langCombo->setCursor(Qt::PointingHandCursor);
+    connect(langCombo, &QComboBox::activated, this, [langCombo]() {
+        Settings::instance().setValue(QStringLiteral("general/targetLangRule"), langCombo->currentData());
+    });
+    toolbar->addWidget(langCombo);
 
     auto *translateButton = new QPushButton(tr("Translate"), inputCard);
     translateButton->setObjectName(QStringLiteral("primaryButton"));

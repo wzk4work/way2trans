@@ -4,27 +4,27 @@
 <context>
     <name>Application</name>
     <message>
-        <location filename="../src/app/Application.cpp" line="471"/>
+        <location filename="../src/app/Application.cpp" line="496"/>
         <source>Translate selection</source>
         <translation>翻译选中文本</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="482"/>
+        <location filename="../src/app/Application.cpp" line="507"/>
         <source>Translate screenshot</source>
         <translation>截图翻译</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="493"/>
+        <location filename="../src/app/Application.cpp" line="518"/>
         <source>Screenshot OCR to clipboard</source>
         <translation>截图 OCR 到剪贴板</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="752"/>
+        <location filename="../src/app/Application.cpp" line="777"/>
         <source>Unknown engine</source>
         <translation>未知引擎</translation>
     </message>
     <message>
-        <location filename="../src/app/Application.cpp" line="765"/>
+        <location filename="../src/app/Application.cpp" line="790"/>
         <source>Timed out</source>
         <translation>超时</translation>
     </message>
@@ -180,6 +180,64 @@
     </message>
 </context>
 <context>
+    <name>LangOptions</name>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="22"/>
+        <source>Auto (Chinese ↔ English)</source>
+        <translation>自动（中英互译）</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="23"/>
+        <source>Chinese</source>
+        <translation>中文</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="24"/>
+        <source>English</source>
+        <translation>英文</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="25"/>
+        <source>Japanese</source>
+        <translation>日语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="26"/>
+        <source>Korean</source>
+        <translation>韩语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="27"/>
+        <source>French</source>
+        <translation>法语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="28"/>
+        <source>German</source>
+        <translation>德语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="29"/>
+        <source>Spanish</source>
+        <translation>西班牙语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="30"/>
+        <source>Russian</source>
+        <translation>俄语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="31"/>
+        <source>Portuguese</source>
+        <translation>葡萄牙语</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/LangOptions.cpp" line="32"/>
+        <source>Italian</source>
+        <translation>意大利语</translation>
+    </message>
+</context>
+<context>
     <name>LlmEngine</name>
     <message>
         <location filename="../src/engines/LlmEngine.cpp" line="147"/>
@@ -195,266 +253,269 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="45"/>
-        <location filename="../src/ui/MainWindow.cpp" line="341"/>
+        <location filename="../src/ui/MainWindow.cpp" line="47"/>
+        <location filename="../src/ui/MainWindow.cpp" line="350"/>
         <source>Familiar</source>
         <translation>熟悉</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="47"/>
-        <location filename="../src/ui/MainWindow.cpp" line="342"/>
+        <location filename="../src/ui/MainWindow.cpp" line="49"/>
+        <location filename="../src/ui/MainWindow.cpp" line="351"/>
         <source>Mastered</source>
         <translation>已掌握</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="49"/>
-        <location filename="../src/ui/MainWindow.cpp" line="340"/>
+        <location filename="../src/ui/MainWindow.cpp" line="51"/>
+        <location filename="../src/ui/MainWindow.cpp" line="349"/>
         <source>New</source>
         <translation>生词</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="57"/>
+        <location filename="../src/ui/MainWindow.cpp" line="59"/>
         <source>way2trans</source>
         <translation>way2trans</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="110"/>
-        <location filename="../src/ui/MainWindow.cpp" line="275"/>
+        <location filename="../src/ui/MainWindow.cpp" line="112"/>
+        <location filename="../src/ui/MainWindow.cpp" line="283"/>
         <source>Translate</source>
         <translation>翻译</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="112"/>
+        <location filename="../src/ui/MainWindow.cpp" line="114"/>
         <source>History</source>
         <translation>历史</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="114"/>
+        <location filename="../src/ui/MainWindow.cpp" line="116"/>
         <source>Vocabulary</source>
         <translation>生词本</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="117"/>
+        <location filename="../src/ui/MainWindow.cpp" line="119"/>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="124"/>
+        <location filename="../src/ui/MainWindow.cpp" line="126"/>
         <source>General</source>
         <translation>常规</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="126"/>
+        <location filename="../src/ui/MainWindow.cpp" line="128"/>
         <source>Hotkeys</source>
         <translation>快捷键</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="128"/>
+        <location filename="../src/ui/MainWindow.cpp" line="130"/>
         <source>Services</source>
         <translation>服务</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="130"/>
+        <location filename="../src/ui/MainWindow.cpp" line="132"/>
         <source>OCR</source>
         <translation>OCR</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="132"/>
+        <location filename="../src/ui/MainWindow.cpp" line="134"/>
         <source>Platform</source>
         <translation>平台</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="242"/>
+        <location filename="../src/ui/MainWindow.cpp" line="244"/>
         <source>Enter text to translate…</source>
         <translation>输入要翻译的文本…</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="258"/>
+        <location filename="../src/ui/MainWindow.cpp" line="260"/>
         <source>Copy</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="258"/>
+        <location filename="../src/ui/MainWindow.cpp" line="260"/>
         <source>Copy source text</source>
         <translation>复制原文</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="261"/>
+        <location filename="../src/ui/MainWindow.cpp" line="263"/>
         <source>Paste</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="261"/>
+        <location filename="../src/ui/MainWindow.cpp" line="263"/>
         <source>Replace with clipboard text</source>
         <translation>用剪贴板内容替换</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="264"/>
+        <location filename="../src/ui/MainWindow.cpp" line="266"/>
         <source>Clear</source>
         <translation>清空</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="264"/>
+        <location filename="../src/ui/MainWindow.cpp" line="266"/>
         <source>Clear the input</source>
         <translation>清空输入</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="270"/>
         <source>Auto · Chinese ↔ English</source>
-        <translation>自动 · 中英互译</translation>
+        <translation type="vanished">自动 · 中英互译</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="272"/>
         <source>Language pair rule — change it in Settings → General</source>
-        <translation>语言对规则——可在“设置 → 常规”中修改</translation>
+        <translation type="vanished">语言对规则——可在“设置 → 常规”中修改</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="303"/>
+        <location filename="../src/ui/MainWindow.cpp" line="276"/>
+        <source>Target language — applies from the next translation</source>
+        <translation>目标语言——下次翻译起生效</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/MainWindow.cpp" line="311"/>
         <source>Search history…</source>
         <translation>搜索历史…</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="336"/>
+        <location filename="../src/ui/MainWindow.cpp" line="345"/>
         <source>Most looked up</source>
         <translation>查询最多</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="337"/>
+        <location filename="../src/ui/MainWindow.cpp" line="346"/>
         <source>Recently added</source>
         <translation>最近添加</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="339"/>
+        <location filename="../src/ui/MainWindow.cpp" line="348"/>
         <source>All statuses</source>
         <translation>全部状态</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="343"/>
+        <location filename="../src/ui/MainWindow.cpp" line="352"/>
         <source>Sort:</source>
         <translation>排序：</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="345"/>
+        <location filename="../src/ui/MainWindow.cpp" line="354"/>
         <source>Filter:</source>
         <translation>筛选：</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="349"/>
+        <location filename="../src/ui/MainWindow.cpp" line="358"/>
         <source>Export Anki…</source>
         <translation>导出 Anki…</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="350"/>
+        <location filename="../src/ui/MainWindow.cpp" line="359"/>
         <source>Export CSV…</source>
         <translation>导出 CSV…</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="351"/>
+        <location filename="../src/ui/MainWindow.cpp" line="360"/>
         <source>Export JSON…</source>
         <translation>导出 JSON…</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="384"/>
+        <location filename="../src/ui/MainWindow.cpp" line="393"/>
         <source>Cycle status (New → Familiar → Mastered)</source>
         <translation>切换状态（生词 → 熟悉 → 已掌握）</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="536"/>
+        <location filename="../src/ui/MainWindow.cpp" line="541"/>
         <source>Translate again</source>
         <translation>重新翻译</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="537"/>
+        <location filename="../src/ui/MainWindow.cpp" line="542"/>
         <source>Copy source</source>
         <translation>复制原文</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="538"/>
+        <location filename="../src/ui/MainWindow.cpp" line="543"/>
         <source>Copy translation</source>
         <translation>复制译文</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="539"/>
+        <location filename="../src/ui/MainWindow.cpp" line="544"/>
         <source>Unfavorite</source>
         <translation>取消收藏</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="539"/>
+        <location filename="../src/ui/MainWindow.cpp" line="544"/>
         <source>Favorite</source>
         <translation>收藏</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="540"/>
+        <location filename="../src/ui/MainWindow.cpp" line="545"/>
         <source>Add to vocabulary</source>
         <translation>加入生词本</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="541"/>
+        <location filename="../src/ui/MainWindow.cpp" line="546"/>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="583"/>
+        <location filename="../src/ui/MainWindow.cpp" line="588"/>
         <source>Status</source>
         <translation>状态</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="583"/>
+        <location filename="../src/ui/MainWindow.cpp" line="588"/>
         <source>Looked up</source>
         <translation>查询次数</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="598"/>
+        <location filename="../src/ui/MainWindow.cpp" line="603"/>
         <source>Context</source>
         <translation>上下文</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="600"/>
+        <location filename="../src/ui/MainWindow.cpp" line="605"/>
         <source>Note</source>
         <translation>笔记</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="603"/>
+        <location filename="../src/ui/MainWindow.cpp" line="608"/>
         <source>Tags</source>
         <translation>标签</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="634"/>
+        <location filename="../src/ui/MainWindow.cpp" line="639"/>
         <source>Anki TSV (*.tsv *.txt)</source>
         <translation>Anki TSV (*.tsv *.txt)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="637"/>
+        <location filename="../src/ui/MainWindow.cpp" line="642"/>
         <source>CSV (*.csv)</source>
         <translation>CSV (*.csv)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="640"/>
+        <location filename="../src/ui/MainWindow.cpp" line="645"/>
         <source>JSON (*.json)</source>
         <translation>JSON (*.json)</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="644"/>
+        <location filename="../src/ui/MainWindow.cpp" line="649"/>
         <source>Export Vocabulary</source>
         <translation>导出生词本</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="658"/>
+        <location filename="../src/ui/MainWindow.cpp" line="663"/>
         <source>Export failed</source>
         <translation>导出失败</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="658"/>
+        <location filename="../src/ui/MainWindow.cpp" line="663"/>
         <source>Could not write %1</source>
         <translation>无法写入 %1</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="661"/>
+        <location filename="../src/ui/MainWindow.cpp" line="666"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="661"/>
+        <location filename="../src/ui/MainWindow.cpp" line="666"/>
         <source>Exported to %1</source>
         <translation>已导出到 %1</translation>
     </message>
@@ -484,35 +545,40 @@
         <translation type="vanished">加入生词本</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="88"/>
-        <location filename="../src/ui/PopupWindow.cpp" line="311"/>
-        <location filename="../src/ui/PopupWindow.cpp" line="319"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="93"/>
+        <source>Target language — switching re-translates</source>
+        <translation>目标语言——切换后立即重翻</translation>
+    </message>
+    <message>
+        <location filename="../src/ui/PopupWindow.cpp" line="106"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="349"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="357"/>
         <source>Add to vocabulary (Ctrl+S)</source>
         <translation>加入生词本（Ctrl+S）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="98"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="116"/>
         <source>Pin (keep open on focus loss, Ctrl+P)</source>
         <translation>钉住（失焦不关闭，Ctrl+P）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="106"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="124"/>
         <source>Close (Esc)</source>
         <translation>关闭 (Esc)</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="168"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="186"/>
         <source>Edit the recognised text, then press Ctrl+Enter to re-translate</source>
         <translation>编辑识别出的文本，然后按 Ctrl+Enter 重新翻译</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="169"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="187"/>
         <source>Recognised text (editable)</source>
         <translation>识别出的文本（可编辑）</translation>
     </message>
     <message>
-        <location filename="../src/ui/PopupWindow.cpp" line="311"/>
-        <location filename="../src/ui/PopupWindow.cpp" line="319"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="349"/>
+        <location filename="../src/ui/PopupWindow.cpp" line="357"/>
         <source>Remove from vocabulary (Ctrl+S)</source>
         <translation>从生词本移除（Ctrl+S）</translation>
     </message>
@@ -703,24 +769,25 @@
 <context>
     <name>SettingsSections</name>
     <message>
-        <location filename="../src/ui/SettingsSections.cpp" line="48"/>
         <source>Chinese ↔ English (auto)</source>
-        <translation>中英互译（自动）</translation>
+        <translation type="vanished">中英互译（自动）</translation>
     </message>
     <message>
-        <location filename="../src/ui/SettingsSections.cpp" line="49"/>
         <source>Always translate to Chinese</source>
-        <translation>总是翻译成中文</translation>
+        <translation type="vanished">总是翻译成中文</translation>
     </message>
     <message>
-        <location filename="../src/ui/SettingsSections.cpp" line="50"/>
         <source>Always translate to English</source>
-        <translation>总是翻译成英文</translation>
+        <translation type="vanished">总是翻译成英文</translation>
+    </message>
+    <message>
+        <source>Language pair rule:</source>
+        <translation type="vanished">语言对规则：</translation>
     </message>
     <message>
         <location filename="../src/ui/SettingsSections.cpp" line="55"/>
-        <source>Language pair rule:</source>
-        <translation>语言对规则：</translation>
+        <source>Translate to:</source>
+        <translation>翻译为：</translation>
     </message>
     <message>
         <location filename="../src/ui/SettingsSections.cpp" line="57"/>

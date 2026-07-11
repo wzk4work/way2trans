@@ -79,17 +79,27 @@ QStringList TranslateService::activeEngineIds() const
 
 QString TranslateService::targetLangFor(const QString &sourceLang)
 {
-    // Settings -> General "language pair rule". The fixed-target rules exist
-    // mainly as an escape hatch for when script detection can't be trusted
-    // (OCR noise): they pin the target no matter what the source looks like.
-    const QString rule
+    // Settings -> "language pair rule": "zh-en" (automatic Chinese ↔ English)
+    // or "to:<BCP-47>" pinning the target language. Legacy "to-zh"/"to-en"
+    // values map onto the "to:" form.
+    QString rule
         = Settings::instance().value(QStringLiteral("general/targetLangRule"), QStringLiteral("zh-en")).toString();
     if (rule == QLatin1String("to-zh"))
-        return QStringLiteral("zh-CN");
-    if (rule == QLatin1String("to-en"))
-        return QStringLiteral("en");
-    // Default "zh-en": a Chinese source translates to English, everything
-    // else to Chinese.
+        rule = QStringLiteral("to:zh-CN");
+    else if (rule == QLatin1String("to-en"))
+        rule = QStringLiteral("to:en");
+
+    if (rule.startsWith(QLatin1String("to:"))) {
+        const QString target = rule.mid(3);
+        // Same-language guard: a pinned target equal to the detected source
+        // (ja -> ja) would be a no-op request; fall back to the auto pair.
+        if (sourceLang != QLatin1String("auto") && !sourceLang.isEmpty() && target.startsWith(sourceLang))
+            return sourceLang.startsWith(QStringLiteral("zh")) ? QStringLiteral("en") : QStringLiteral("zh-CN");
+        return target;
+    }
+
+    // "zh-en": a Chinese source translates to English, everything else to
+    // Chinese.
     if (sourceLang.startsWith(QStringLiteral("zh")))
         return QStringLiteral("en");
     return QStringLiteral("zh-CN");

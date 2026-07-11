@@ -380,6 +380,13 @@ void Application::setupServices()
         m_popupSourceEditable = true; // keep the source editable across re-runs
         m_translateService->translate(newText);
     });
+    // Target language switched in the popup: re-run the current request so
+    // the cards refill in the new language (trigger/editability unchanged;
+    // the history dedupe window folds it into the same row).
+    connect(m_popup.get(), &PopupWindow::targetLangChanged, this, [this]() {
+        if (!m_currentRequest.text.trimmed().isEmpty())
+            m_translateService->translate(m_currentRequest.text);
+    });
     // Vocabulary star: save/remove the current word (DESIGN.md §8.3).
     connect(m_popup.get(), &PopupWindow::saveRequested, this, [this](const QString &word, const QString &context) {
         if (m_libraryService)
