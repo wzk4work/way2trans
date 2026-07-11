@@ -403,7 +403,14 @@ void MainWindow::setServices(TranslateService *translate, LibraryService *librar
     m_historyView->setModel(m_historyModel);
     connect(
         m_historySearch, &QLineEdit::textChanged, this, [this](const QString &text) { m_historyModel->search(text); });
-    connect(m_historyView, &QListView::activated, this, &MainWindow::onHistoryActivated);
+    // Re-translation is an explicit action: double-click or Enter. On most
+    // Linux styles activated() fires on a single click, which made every
+    // stray click jump pages and burn an API request — the row already shows
+    // the stored translation, so plain clicks should only select.
+    connect(m_historyView, &QListView::doubleClicked, this, &MainWindow::onHistoryActivated);
+    auto *historyEnter = new QShortcut(QKeySequence(Qt::Key_Return), m_historyView);
+    historyEnter->setContext(Qt::WidgetShortcut);
+    connect(historyEnter, &QShortcut::activated, this, [this]() { onHistoryActivated(m_historyView->currentIndex()); });
     connect(m_historyView, &QListView::customContextMenuRequested, this, &MainWindow::showHistoryContextMenu);
 
     m_vocabModel = new VocabModel(m_library, this);
@@ -511,7 +518,7 @@ void MainWindow::onHistoryActivated(const QModelIndex &index)
 {
     if (!index.isValid())
         return;
-    // Single click / activation refills the translate page and re-runs it.
+    // Double-click / Enter / context menu: refill the translate page and re-run.
     const HistoryRecord r = m_historyModel->recordAt(index.row());
     m_nav->setCurrentRow(0);
     translateText(r.sourceText);
@@ -525,6 +532,7 @@ void MainWindow::showHistoryContextMenu(const QPoint &pos)
     const HistoryRecord r = m_historyModel->recordAt(index.row());
 
     QMenu menu(this);
+    QAction *retranslate = menu.addAction(tr("Translate again"));
     QAction *copySrc = menu.addAction(tr("Copy source"));
     QAction *copyRes = menu.addAction(tr("Copy translation"));
     QAction *favorite = menu.addAction(r.favorite ? tr("Unfavorite") : tr("Favorite"));
@@ -532,7 +540,13 @@ void MainWindow::showHistoryContextMenu(const QPoint &pos)
     QAction *remove = menu.addAction(tr("Delete"));
 
     QAction *chosen = menu.exec(m_historyView->viewport()->mapToGlobal(pos));
-    if (!chosen || !m_library || !m_library->isReady())
+    if (!chosen)
+        return;
+    if (chosen == retranslate) {
+        onHistoryActivated(index);
+        return;
+    }
+    if (!m_library || !m_library->isReady())
         return;
 
     if (chosen == copySrc) {
