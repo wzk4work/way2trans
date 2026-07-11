@@ -3,6 +3,7 @@
 #include "engines/TranslateTypes.h"
 
 #include <QApplication>
+#include <QHash>
 #include <QList>
 #include <QRect>
 #include <QString>
@@ -161,6 +162,12 @@ private:
     QString m_currentTrigger; // selection|capture|input|clipboard
     TranslateRequest m_currentRequest; // request being translated right now
     TranslateResult m_lastGoodResult; // latest ok result (snapshot for the star)
-    bool m_historyRecorded = false; // only the first ok result is recorded
+    // History records the first *in service order* engine that succeeds — not
+    // the fastest responder — so what gets stored is deterministic (§8.2). The
+    // order comes from requestStarted; results collect here until the highest-
+    // priority pending engine resolves.
+    QStringList m_requestEngineOrder;
+    QHash<QString, TranslateResult> m_requestResults;
+    bool m_historyRecorded = false; // the ordered winner has been written
     bool m_autoCopied = false; // auto-copy fired for this request (§10 autoCopyResult)
 };

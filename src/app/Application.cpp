@@ -396,6 +396,8 @@ void Application::setupServices()
     connect(m_translateService, &TranslateService::requestStarted, this,
         [this](const TranslateRequest &req, const QStringList &ids) {
             m_currentRequest = req;
+            m_requestEngineOrder = ids; // service order = history priority
+            m_requestResults.clear();
             m_historyRecorded = false;
             m_autoCopied = false;
             m_lastGoodResult = {};
@@ -415,20 +417,36 @@ void Application::setupServices()
             qCWarning(w2tApp) << "result" << result.engineId << "error:" << result.error;
         m_popup->applyResult(result);
 
+        // History records the first engine *in service order* that succeeded,
+        // not the fastest responder, so the stored result is deterministic
+        // (DESIGN.md §8.2). A failure can also resolve the decision (it hands
+        // the win to the next engine down), so this walk runs on every result.
+        m_requestResults.insert(result.engineId, result);
+        if (!m_historyRecorded) {
+            for (const QString &id : std::as_const(m_requestEngineOrder)) {
+                const auto it = m_requestResults.constFind(id);
+                if (it == m_requestResults.constEnd())
+                    break; // a higher-priority engine is still pending
+                if (it->ok()) {
+                    m_historyRecorded = true;
+                    if (m_libraryService)
+                        m_libraryService->recordHistory(m_currentTrigger, m_currentRequest, *it);
+                    break;
+                }
+                // This engine failed: the next one in order inherits the win.
+            }
+        }
+
         if (result.ok()) {
-            // Auto-copy the first successful result if enabled (DESIGN.md §10).
+            // Auto-copy the first successful result if enabled (DESIGN.md §10) —
+            // deliberately the fastest responder, since the point is having
+            // something to paste immediately.
             if (!m_autoCopied && Settings::instance().value(QStringLiteral("general/autoCopyResult"), false).toBool()) {
                 m_autoCopied = true;
                 QApplication::clipboard()->setText(result.translatedText);
             }
-            // Record history once per request, on the first successful result
-            // (DESIGN.md §8.2). Remember it as the snapshot the star will save.
+            // Remember the latest ok result as the snapshot the star will save.
             m_lastGoodResult = result;
-            if (!m_historyRecorded) {
-                m_historyRecorded = true;
-                if (m_libraryService)
-                    m_libraryService->recordHistory(m_currentTrigger, m_currentRequest, result);
-            }
             // Light the star if this word is already saved (DESIGN.md §8.3).
             if (m_libraryService) {
                 const QString word = (result.dict.has_value() && !result.dict->word.isEmpty())
