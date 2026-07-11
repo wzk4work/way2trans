@@ -314,7 +314,8 @@ QWidget *MainWindow::buildHistoryPage()
     m_historyView = new QListView(card);
     m_historyView->setObjectName(QStringLiteral("historyList"));
     m_historyView->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_historyView->setItemDelegate(new HistoryItemDelegate(m_historyView, m_historyView));
+    m_historyDelegate = new HistoryItemDelegate(m_historyView, m_historyView);
+    m_historyView->setItemDelegate(m_historyDelegate);
     // The delegate sizes rows to the viewport; Adjust re-lays them out on
     // resize, so the horizontal scrollbar can go away entirely.
     m_historyView->setResizeMode(QListView::Adjust);
@@ -403,14 +404,11 @@ void MainWindow::setServices(TranslateService *translate, LibraryService *librar
     m_historyView->setModel(m_historyModel);
     connect(
         m_historySearch, &QLineEdit::textChanged, this, [this](const QString &text) { m_historyModel->search(text); });
-    // Re-translation is an explicit action: double-click or Enter. On most
-    // Linux styles activated() fires on a single click, which made every
-    // stray click jump pages and burn an API request — the row already shows
-    // the stored translation, so plain clicks should only select.
-    connect(m_historyView, &QListView::doubleClicked, this, &MainWindow::onHistoryActivated);
-    auto *historyEnter = new QShortcut(QKeySequence(Qt::Key_Return), m_historyView);
-    historyEnter->setContext(Qt::WidgetShortcut);
-    connect(historyEnter, &QShortcut::activated, this, [this]() { onHistoryActivated(m_historyView->currentIndex()); });
+    // Selecting a row expands it in place to the full stored source and
+    // translation — viewing history never re-runs a request. Re-translation
+    // is only the explicit context-menu action.
+    connect(m_historyView->selectionModel(), &QItemSelectionModel::currentChanged, this,
+        [this](const QModelIndex &current, const QModelIndex &) { m_historyDelegate->setExpandedIndex(current); });
     connect(m_historyView, &QListView::customContextMenuRequested, this, &MainWindow::showHistoryContextMenu);
 
     m_vocabModel = new VocabModel(m_library, this);
@@ -518,7 +516,7 @@ void MainWindow::onHistoryActivated(const QModelIndex &index)
 {
     if (!index.isValid())
         return;
-    // Double-click / Enter / context menu: refill the translate page and re-run.
+    // Context-menu "Translate again": refill the translate page and re-run.
     const HistoryRecord r = m_historyModel->recordAt(index.row());
     m_nav->setCurrentRow(0);
     translateText(r.sourceText);

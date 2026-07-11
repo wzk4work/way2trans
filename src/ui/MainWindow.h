@@ -7,6 +7,7 @@
 
 class LibraryService;
 class TranslateService;
+class HistoryItemDelegate;
 class HistoryModel;
 class VocabModel;
 class EngineResultCard;
@@ -104,6 +105,7 @@ private:
     HistoryModel *m_historyModel = nullptr;
     QLineEdit *m_historySearch = nullptr;
     QListView *m_historyView = nullptr;
+    HistoryItemDelegate *m_historyDelegate = nullptr; // selected row expands in place
 
     // Vocabulary page.
     VocabModel *m_vocabModel = nullptr;
