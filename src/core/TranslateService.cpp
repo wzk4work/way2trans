@@ -11,12 +11,15 @@
 #include <QNetworkAccessManager>
 
 namespace {
-// Results for the same (engine, text) pair are reused within this window.
+// Results for the same (engine, target language, text) triple are reused
+// within this window. The target language must be part of the key: the popup
+// re-translates in place when the user switches languages, and a text-only
+// key would serve the old-language result back.
 constexpr int kCacheTtlSeconds = 30;
 
-QString cacheKey(const QString &engineId, const QString &text)
+QString cacheKey(const QString &engineId, const TranslateRequest &req)
 {
-    return engineId + QLatin1Char('\n') + text;
+    return engineId + QLatin1Char('\n') + req.targetLang + QLatin1Char('\n') + req.text;
 }
 } // namespace
 
@@ -47,7 +50,7 @@ void TranslateService::reloadEngines()
         connect(engine, &TranslateEngine::resultReady, this, [this](const TranslateResult &result) {
             if (result.ok())
                 m_cache.insert(
-                    cacheKey(result.engineId, m_lastRequest.text), CacheEntry {result, QDateTime::currentDateTime()});
+                    cacheKey(result.engineId, m_lastRequest), CacheEntry {result, QDateTime::currentDateTime()});
             emit resultReady(result);
         });
         // Forward streaming deltas, tagging them with the instance id so the UI
@@ -136,7 +139,7 @@ void TranslateService::retry(const QString &engineId)
         return;
     for (TranslateEngine *engine : m_engines) {
         if (engine->id() == engineId) {
-            m_cache.remove(cacheKey(engineId, m_lastRequest.text));
+            m_cache.remove(cacheKey(engineId, m_lastRequest));
             dispatchTo(engine, m_lastRequest);
             return;
         }
@@ -146,7 +149,7 @@ void TranslateService::retry(const QString &engineId)
 void TranslateService::dispatchTo(TranslateEngine *engine, const TranslateRequest &req)
 {
     // Serve from the short-lived cache when fresh (DESIGN.md §5.1).
-    const auto it = m_cache.constFind(cacheKey(engine->id(), req.text));
+    const auto it = m_cache.constFind(cacheKey(engine->id(), req));
     if (it != m_cache.constEnd() && it->at.secsTo(QDateTime::currentDateTime()) < kCacheTtlSeconds) {
         qCDebug(w2tCore) << "cache hit for" << engine->id();
         // Re-emit asynchronously so listeners see consistent ordering with live
