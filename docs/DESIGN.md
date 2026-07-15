@@ -381,6 +381,7 @@ CREATE TABLE vocab (
 - 分组：`[general]` 语言对规则（`targetLangRule`：`zh-en` 自动中英互译，或 `to:<BCP-47>` 固定目标语言，旧值 `to-zh`/`to-en` 兼容映射；固定目标与检测源语言相同时回退自动规则，避免 ja→ja 空转）、开机自启、翻译完成自动复制首个结果（`autoCopyResult`，默认关）；`[hotkeys]`；`[services/<uuid>]` 服务实例（type/name/enabled/order/key…，旧版 `[engines/<type>]` 首启时自动迁移）；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置。
 - API key 一期明文存本地（0600 + 文档说明），二期可选 QtKeychain。
 - 配置变更全部通过 `Settings` 单例信号广播，无需重启生效。
+- Qt 6.4 的 INI 后端把 `general` 组写成 `[%General]` 段、读回时却解析成大写 `General/*` 键（Unix 上键区分大小写，后续 Qt 已修复），导致整组配置重启即失效。`Settings` 内部读取统一走带回退的助手（先查 `general/x`，缺失再查 `General/x`），写入保持小写；所有配置读写必须经过 `Settings` 单例，不得自建 QSettings。
 
 ## 11. 依赖与构建
 

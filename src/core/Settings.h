@@ -56,5 +56,9 @@ private:
     explicit Settings(QObject *parent = nullptr);
     Q_DISABLE_COPY(Settings)
 
+    // All reads go through here: retries "general/x" as "General/x" to survive
+    // the Qt 6.4 INI [%General] escaping asymmetry (see the .cpp comment).
+    QVariant readValue(const QString &key, const QVariant &defaultValue) const;
+
     QSettings *m_settings;
 };
