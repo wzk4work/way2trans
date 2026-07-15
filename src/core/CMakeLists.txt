@@ -2,6 +2,8 @@
 # Must not depend on ui/ or platform/. Depends on the engines/ interface headers
 # only (TranslateService owns engine instances via EngineRegistry, DESIGN.md §5).
 add_library(way2trans_core STATIC
+    AutostartManager.cpp
+    AutostartManager.h
     Logging.cpp
     Logging.h
     Settings.cpp
@@ -31,6 +33,11 @@ add_library(way2trans_core STATIC
 target_include_directories(way2trans_core
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
            ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+# AutostartManager names the XDG autostart entry after the app id (DESIGN.md §10).
+target_compile_definitions(way2trans_core
+    PRIVATE WAY2TRANS_APP_ID="${WAY2TRANS_APP_ID}"
 )
 
 target_link_libraries(way2trans_core

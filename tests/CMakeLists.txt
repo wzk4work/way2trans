@@ -18,6 +18,13 @@ add_test(NAME tst_settings COMMAND tst_settings)
 set_tests_properties(tst_settings PROPERTIES
     ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config;QT_QPA_PLATFORM=offscreen")
 
+# --- core: AutostartManager XDG entry sync (hermetic XDG_CONFIG_HOME) -------
+add_executable(tst_autostartmanager core/tst_autostartmanager.cpp)
+target_link_libraries(tst_autostartmanager PRIVATE Qt6::Test way2trans_core)
+add_test(NAME tst_autostartmanager COMMAND tst_autostartmanager)
+set_tests_properties(tst_autostartmanager PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-autostart;QT_QPA_PLATFORM=offscreen")
+
 # --- core: TextCleaner + LangDetector --------------------------------------
 add_executable(tst_textcleaner core/tst_textcleaner.cpp)
 target_link_libraries(tst_textcleaner PRIVATE Qt6::Test way2trans_core)

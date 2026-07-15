@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "AutostartManager.h"
 #include "CaptureOverlay.h"
 #include "DBusService.h"
 #include "HotkeyBackend.h"
@@ -81,6 +82,12 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
         QStringLiteral("Translate the given text and print the result."), QStringLiteral("text"));
     parser.addOption(textOption);
 
+    // Silent start (DESIGN.md §9): stay resident in the tray without showing
+    // the main window. This is how the autostart entry launches the daemon.
+    QCommandLineOption hiddenOption(QStringList {QStringLiteral("hidden")},
+        QStringLiteral("Start in the background without showing the main window."));
+    parser.addOption(hiddenOption);
+
     // Headless verification entry (DESIGN.md §13 M3): OCR an image file, then
     // translate the recognised text, printing both. Not part of the daemon.
     QCommandLineOption ocrTestOption(QStringList {QStringLiteral("ocr-test")},
@@ -125,7 +132,9 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
 
     const QStringList positional = parser.positionalArguments();
     if (positional.isEmpty()) {
-        return CliAction {}; // Kind::RunDaemon by default
+        CliAction action; // Kind::RunDaemon by default
+        action.startHidden = parser.isSet(hiddenOption);
+        return action;
     }
 
     const QString command = positional.first();
@@ -309,6 +318,14 @@ bool Application::forwardToRunningInstance(const CliAction &action)
         return true;
     }
 
+    // A hidden bare launch means "make sure the daemon runs", nothing more.
+    // One is already running, so don't yank its main window to the front
+    // (this is the duplicate-instance path when autostart fires at login).
+    if (action.kind == CliAction::Kind::RunDaemon && action.startHidden) {
+        qCInfo(w2tApp) << "Instance already running; hidden launch exits without forwarding";
+        return true;
+    }
+
     const QString method
         = dbusMethodForTrigger(action.kind == CliAction::Kind::Trigger ? action.trigger : QStringLiteral("show-main"));
     QDBusReply<void> reply = iface.call(method);
@@ -346,8 +363,10 @@ void Application::dispatch(const CliAction &action)
         break;
     case CliAction::Kind::RunDaemon:
         // Bare launch: just sit resident. Show the window so first-run users
-        // see something; later milestones may make this configurable.
-        showMainWindow();
+        // see something; --hidden (the autostart entry, DESIGN.md §9) keeps
+        // the daemon in the tray instead.
+        if (!action.startHidden)
+            showMainWindow();
         break;
     case CliAction::Kind::Invalid:
         qCWarning(w2tApp) << "Ignoring invalid action:" << action.errorText;
@@ -362,6 +381,10 @@ void Application::setupServices()
     // Must run before the popup QWindow is created so the Wayland layer-shell
     // integration is installed in time (no-op on X11).
     PlatformFactory::prepareWindowing();
+
+    // Keeps the XDG autostart entry in sync with the settings toggle and
+    // heals a stale Exec path on every launch (DESIGN.md §10).
+    new AutostartManager(this);
 
     // Core translation service (owns the shared QNetworkAccessManager + engines).
     m_translateService = new TranslateService(this);

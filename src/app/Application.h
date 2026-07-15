@@ -36,6 +36,7 @@ struct CliAction {
     };
 
     Kind kind = Kind::RunDaemon;
+    bool startHidden = false; // for Kind::RunDaemon: `--hidden`, stay in the tray
     QString trigger; // for Kind::Trigger
     QString text; // for Kind::TranslateText
     QString imagePath; // for Kind::OcrTest

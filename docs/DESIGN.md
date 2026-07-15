@@ -374,6 +374,7 @@ CREATE TABLE vocab (
   `TriggerSelection()` / `TriggerCapture()` / `TriggerCaptureOcr()` / `TriggerClipboard()` / `ShowMain()` / `Translate(s text) → s`。
 - 启动时若服务名已被占用：把本次 CLI 参数转发给已运行实例后退出（单实例机制本体，不再额外用锁文件）。
 - CLI：`way2trans trigger <action>`、`way2trans --text "hello"`。这既是 Null 快捷键后端的落点，也天然支持脚本化。
+- `way2trans --hidden`：静默启动——驻留（托盘 + 快捷键 + D-Bus 正常工作）但不显示主窗口，是开机自启条目的启动方式。若已有实例在运行，携带 `--hidden` 的裸启动**不做任何转发**直接退出（登录时自启的重复实例不应把已运行实例的主窗口拉到前台）；不带 `--hidden` 的裸启动仍转发 `ShowMain()`。
 
 ## 10. 配置（core/Settings）
 
@@ -382,6 +383,11 @@ CREATE TABLE vocab (
 - API key 一期明文存本地（0600 + 文档说明），二期可选 QtKeychain。
 - 配置变更全部通过 `Settings` 单例信号广播，无需重启生效。
 - Qt 6.4 的 INI 后端把 `general` 组写成 `[%General]` 段、读回时却解析成大写 `General/*` 键（Unix 上键区分大小写，后续 Qt 已修复），导致整组配置重启即失效。`Settings` 内部读取统一走带回退的助手（先查 `general/x`，缺失再查 `General/x`），写入保持小写；所有配置读写必须经过 `Settings` 单例，不得自建 QSettings。
+- 开机自启（`general/autostart`）由 `core/AutostartManager` 落地为 XDG autostart 条目
+  `~/.config/autostart/io.github.way2trans.desktop`（`Exec=<可执行文件路径> --hidden`，静默启动，见 §9）。
+  配置值是唯一事实来源：勾选/取消即写入/删除条目；每次启动时按当前配置重新同步一遍，
+  顺带修复二进制路径变化（如 AppImage 换了位置，`Exec` 优先取 `$APPIMAGE` 环境变量）导致的过期 `Exec`。
+  XDG autostart 是 freedesktop 通用约定，X11/Wayland 行为一致，不属于平台差异，故放 `core/` 而非 `platform/`。
 
 ## 11. 依赖与构建
 
