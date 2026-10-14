@@ -32,3 +32,8 @@ ui_*.h
 
 # OS
 .DS_Store
+
+# Local-only project docs (not published)
+AGENTS.md
+CLAUDE.md
+docs/
