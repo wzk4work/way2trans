@@ -4,9 +4,11 @@
 
 #include <QHash>
 #include <QPoint>
+#include <QRect>
 #include <QWidget>
 
 class QComboBox;
+class QTimer;
 class QHBoxLayout;
 class QVBoxLayout;
 class QFrame;
@@ -83,11 +85,26 @@ protected:
     // propagation from non-interactive children; interactive widgets (text,
     // buttons) keep their own mouse handling.
     bool eventFilter(QObject *watched, QEvent *event) override;
+    // Drag-to-resize from the shadow ring outside the card (events on the
+    // window itself; the card area goes through eventFilter instead).
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     void setPinned(bool pinned);
     void clearCards();
     void onStarToggled(bool checked);
+    // --- drag-to-resize (edges + corners of the visible card) --------------
+    // Which resize edges a global cursor position falls on: within a small
+    // grip inside the card edge, or anywhere in the shadow ring outside it.
+    Qt::Edges resizeEdgesAt(const QPoint &globalPos) const;
+    void updateResizeCursor(const QPoint &globalPos);
+    bool startEdgeResize(const QPoint &globalPos); // false: not on an edge
+    bool continueEdgeResize(const QPoint &globalPos); // false: not resizing
+    // End of a drag: record the width (remembered + persisted) and/or the
+    // height override (this popup only), then re-run the size adjustment.
+    void finishEdgeResize(const QPoint &globalPos);
     // adjustSize() with the height capped to a fraction of the current screen,
     // so long results scroll inside the popup instead of overflowing off-screen.
     void adjustPopupSize();
@@ -115,6 +132,17 @@ private:
     bool m_everActivated = false;
     bool m_dragging = false;
     QPoint m_dragOffset;
+    // User-dragged width (window width, logical px; 0 = auto). Remembered
+    // across popups and persisted to popup/width. Height is never remembered:
+    // a dragged height only overrides the current popup (flag below) and the
+    // next request goes back to the content-derived auto height.
+    int m_userWidth = 0;
+    bool m_heightOverridden = false; // reset by beginRequest()
+    bool m_resizing = false; // an edge drag is in progress
+    Qt::Edges m_resizeEdges;
+    QRect m_resizeStartGeometry;
+    QPoint m_resizeStartPos;
+    QTimer *m_saveWidthTimer = nullptr;
     QString m_currentWord; // the queried word for the star (single-word lookups)
     QString m_currentContext; // full source text saved as vocab context
     QString m_firstResultText; // first successful result (Ctrl+Shift+C copies it)

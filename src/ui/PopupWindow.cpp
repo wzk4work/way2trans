@@ -42,6 +42,19 @@ namespace {
 // Padding reserved around the card for the drop shadow to render into. The
 // translucent top-level window is this much larger than the visible card.
 constexpr int kShadowMargin = 18;
+
+// Resize grip: this many pixels inside the visible card edge still count as
+// the edge (the shadow ring outside the card counts entirely).
+constexpr int kResizeGrip = 8;
+
+// Below this the popup stops being usable no matter what the layout claims.
+constexpr QSize kMinUserSize(240, 160);
+
+// Card width bounds while the width is automatic (no user drag yet).
+constexpr int kMinCardWidth = 360;
+constexpr int kMaxAutoCardWidth = 560;
+
+constexpr auto kKeyPopupWidth = "popup/width";
 } // namespace
 
 PopupWindow::PopupWindow(QWidget *parent)
@@ -57,8 +70,8 @@ PopupWindow::PopupWindow(QWidget *parent)
 
     m_container = new QFrame(this);
     m_container->setObjectName(QStringLiteral("popupCard"));
-    m_container->setMinimumWidth(360);
-    m_container->setMaximumWidth(560);
+    m_container->setMinimumWidth(kMinCardWidth);
+    m_container->setMaximumWidth(kMaxAutoCardWidth);
     m_container->installEventFilter(this); // drag-to-move (see eventFilter)
     outer->addWidget(m_container);
 
@@ -210,6 +223,8 @@ PopupWindow::PopupWindow(QWidget *parent)
     // still fits under the screen cap instead of scrolling a few pixels.
     // Grow-only, so it cannot oscillate with the shrinking in adjustPopupSize.
     connect(m_scroll->verticalScrollBar(), &QAbstractSlider::rangeChanged, this, [this](int, int max) {
+        if (m_resizing || m_heightOverridden)
+            return; // the user owns the height right now; overflow just scrolls
         const QScreen *scr = screen();
         const int cap = scr ? int(scr->availableGeometry().height() * 0.7) : 600;
         if (max > 0 && height() + max <= cap)
@@ -275,12 +290,38 @@ PopupWindow::PopupWindow(QWidget *parent)
                                  "QToolButton#iconButton:hover { background: palette(midlight); }"
                                  "QToolButton#iconButton:checked { background: palette(midlight); }")
         + w2t::ui::cardStyleSheet());
+
+    // --- drag-to-resize ----------------------------------------------------
+    // Hover tracking so the cursor turns into a resize arrow over the grip
+    // zones (window background = shadow ring, container = card background).
+    setMouseTracking(true);
+    m_container->setMouseTracking(true);
+
+    // Persist the user-chosen width, debounced across consecutive drags.
+    // Only the width is remembered: the height is content-driven and goes
+    // back to auto on the next request.
+    m_saveWidthTimer = new QTimer(this);
+    m_saveWidthTimer->setSingleShot(true);
+    m_saveWidthTimer->setInterval(400);
+    connect(m_saveWidthTimer, &QTimer::timeout, this,
+        [this]() { Settings::instance().setValue(QLatin1String(kKeyPopupWidth), m_userWidth); });
+
+    // A width persisted by an earlier session applies from the first popup.
+    const int savedWidth = Settings::instance().value(QLatin1String(kKeyPopupWidth)).toInt();
+    if (savedWidth > 0) {
+        m_userWidth = qMax(savedWidth, kMinUserSize.width());
+        // The compact width cap only makes sense while the width is automatic.
+        m_container->setMaximumWidth(QWIDGETSIZE_MAX);
+    }
 }
 
 void PopupWindow::beginRequest(const TranslateRequest &request, const QStringList &engineIds,
     const QHash<QString, QString> &engineNames, bool editableSource)
 {
     clearCards();
+    // A user-dragged height only lives as long as the popup it was dragged
+    // on; a fresh request goes back to the content-derived auto height.
+    m_heightOverridden = false;
     m_singleWord = looksLikeWord(request.text);
     m_firstResultText.clear();
 
@@ -363,6 +404,21 @@ void PopupWindow::onStarToggled(bool checked)
 
 void PopupWindow::adjustPopupSize()
 {
+    if (m_resizing)
+        return; // mid-drag (streaming results can get here): the pointer rules
+
+    // A remembered user width replaces the adjustSize()-settled width; the
+    // height below is still computed from the content at that width.
+    if (m_userWidth > 0)
+        setFixedWidth(m_userWidth);
+
+    // The user dragged this popup's height: keep it, content scrolls or
+    // top-aligns. The next beginRequest() clears the override.
+    if (m_heightOverridden) {
+        m_scroll->setMinimumHeight(0);
+        return;
+    }
+
     // Cap the popup below the screen height so the WM never has to clip it;
     // the scroll area absorbs whatever the cards can't show. 70% leaves room
     // for the popup to sit near the selection without covering everything.
@@ -395,7 +451,12 @@ void PopupWindow::adjustPopupSize()
     // a resizable QScrollArea never sizes its widget below the latter, so a
     // viewport smaller than it gets a scrollbar no matter what hfw says.
     QLayout *contentLayout = m_scroll->widget()->layout();
-    const int viewportWidth = m_scroll->viewport()->width();
+    // Measure at the scrollbar-less viewport width (the frameless scroll
+    // area's own width), not viewport()->width(): replacing tall content in
+    // place can leave a transient scrollbar that narrows the viewport, and a
+    // measurement at the narrowed width over-estimates the wrapped height —
+    // the window then grows, the scrollbar vanishes and dead space remains.
+    const int viewportWidth = m_scroll->width() > 0 ? m_scroll->width() : m_scroll->viewport()->width();
     const int hfw = (contentLayout->hasHeightForWidth() && viewportWidth > 0)
         ? contentLayout->heightForWidth(viewportWidth)
         : m_scroll->widget()->sizeHint().height();
@@ -416,6 +477,121 @@ void PopupWindow::adjustPopupSize()
     setFixedHeight(chrome + inner);
 }
 
+Qt::Edges PopupWindow::resizeEdgesAt(const QPoint &globalPos) const
+{
+    // Grip zones anchor on the visible card, not the (larger) translucent
+    // window: a small strip inside the card edge, plus the whole shadow ring
+    // outside it, which is window surface anyway and otherwise dead space.
+    const QRect card(m_container->mapToGlobal(QPoint(0, 0)), m_container->size());
+    Qt::Edges edges;
+    if (globalPos.x() <= card.left() + kResizeGrip)
+        edges |= Qt::LeftEdge;
+    else if (globalPos.x() >= card.right() - kResizeGrip)
+        edges |= Qt::RightEdge;
+    if (globalPos.y() <= card.top() + kResizeGrip)
+        edges |= Qt::TopEdge;
+    else if (globalPos.y() >= card.bottom() - kResizeGrip)
+        edges |= Qt::BottomEdge;
+    return edges;
+}
+
+void PopupWindow::updateResizeCursor(const QPoint &globalPos)
+{
+    const Qt::Edges edges = m_resizing ? m_resizeEdges : resizeEdgesAt(globalPos);
+    Qt::CursorShape shape = Qt::ArrowCursor;
+    const bool onLeft = edges & Qt::LeftEdge;
+    const bool onRight = edges & Qt::RightEdge;
+    const bool onTop = edges & Qt::TopEdge;
+    const bool onBottom = edges & Qt::BottomEdge;
+    if ((onTop && onLeft) || (onBottom && onRight))
+        shape = Qt::SizeFDiagCursor;
+    else if ((onTop && onRight) || (onBottom && onLeft))
+        shape = Qt::SizeBDiagCursor;
+    else if (onLeft || onRight)
+        shape = Qt::SizeHorCursor;
+    else if (onTop || onBottom)
+        shape = Qt::SizeVerCursor;
+    if (shape == Qt::ArrowCursor)
+        unsetCursor();
+    else
+        setCursor(shape);
+}
+
+bool PopupWindow::startEdgeResize(const QPoint &globalPos)
+{
+    const Qt::Edges edges = resizeEdgesAt(globalPos);
+    if (!edges)
+        return false;
+    // Lift what adjustPopupSize() pinned (fixed height/width, the scroll
+    // area's content-hugging minimum, the card's compact width cap) so the
+    // drag geometry is free; finishEdgeResize() re-pins afterwards.
+    setMinimumSize(QSize(0, 0));
+    setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
+    m_container->setMaximumWidth(QWIDGETSIZE_MAX);
+    m_scroll->setMinimumHeight(0);
+    m_resizing = true;
+    m_resizeEdges = edges;
+    m_resizeStartGeometry = geometry();
+    m_resizeStartPos = globalPos;
+    return true;
+}
+
+bool PopupWindow::continueEdgeResize(const QPoint &globalPos)
+{
+    if (!m_resizing)
+        return false;
+    const QPoint delta = globalPos - m_resizeStartPos;
+    QRect geo = m_resizeStartGeometry;
+    if (m_resizeEdges & Qt::LeftEdge)
+        geo.setLeft(geo.left() + delta.x());
+    if (m_resizeEdges & Qt::RightEdge)
+        geo.setRight(geo.right() + delta.x());
+    if (m_resizeEdges & Qt::TopEdge)
+        geo.setTop(geo.top() + delta.y());
+    if (m_resizeEdges & Qt::BottomEdge)
+        geo.setBottom(geo.bottom() + delta.y());
+    // Clamp to the layout minimum, keeping the non-dragged edge anchored so
+    // the window doesn't slide once the drag bottoms out.
+    const QSize minSize = minimumSizeHint().expandedTo(kMinUserSize);
+    if (geo.width() < minSize.width()) {
+        if (m_resizeEdges & Qt::LeftEdge)
+            geo.setLeft(geo.right() - minSize.width() + 1);
+        else
+            geo.setRight(geo.left() + minSize.width() - 1);
+    }
+    if (geo.height() < minSize.height()) {
+        if (m_resizeEdges & Qt::TopEdge)
+            geo.setTop(geo.bottom() - minSize.height() + 1);
+        else
+            geo.setBottom(geo.top() + minSize.height() - 1);
+    }
+    setGeometry(geo);
+    return true;
+}
+
+void PopupWindow::finishEdgeResize(const QPoint &globalPos)
+{
+    m_resizing = false;
+    if (m_resizeEdges & (Qt::LeftEdge | Qt::RightEdge)) {
+        // Widths are remembered (and persisted): the user is expressing how
+        // wide they like their popups, which outlives this request.
+        m_userWidth = width();
+        m_saveWidthTimer->start();
+    }
+    if (m_resizeEdges & (Qt::TopEdge | Qt::BottomEdge)) {
+        // Heights are not: the override holds for this popup only.
+        m_heightOverridden = true;
+    }
+    // startEdgeResize() lifted the card's compact width cap; a height-only
+    // drag leaves the width automatic, so the cap comes back.
+    if (m_userWidth <= 0)
+        m_container->setMaximumWidth(kMaxAutoCardWidth);
+    // Re-pin the width and, after a width-only drag, recompute the auto
+    // height so the re-wrapped content fits again.
+    adjustPopupSize();
+    updateResizeCursor(globalPos);
+}
+
 void PopupWindow::scheduleAdjust()
 {
     if (m_adjustPending)
@@ -430,14 +606,24 @@ void PopupWindow::scheduleAdjust()
 QSize PopupWindow::sizeHint() const
 {
     QSize hint = QWidget::sizeHint();
+    // Placement backends size the window from this hint; a remembered user
+    // width must win over the content-derived one.
+    if (m_userWidth > 0)
+        hint.setWidth(m_userWidth);
     hint.setHeight(qMin(hint.height(), maximumHeight()));
     return hint;
 }
 
 void PopupWindow::clearCards()
 {
-    for (EngineResultCard *card : std::as_const(m_cards))
+    // Detach and hide right away, not just deleteLater(): beginRequest()
+    // measures the new content height in the same call stack, and cards
+    // merely pending deletion would still inflate the layout's hints.
+    for (EngineResultCard *card : std::as_const(m_cards)) {
+        m_cardsLayout->removeWidget(card);
+        card->hide();
         card->deleteLater();
+    }
     m_cards.clear();
 }
 
@@ -467,10 +653,16 @@ bool PopupWindow::event(QEvent *event)
     // WindowDeactivate when another window is activated. Ignore the transient
     // deactivation that happens while the user drags the window, and any that
     // arrives before the window was ever actually activated.
-    if (event->type() == QEvent::WindowDeactivate && m_everActivated && !m_pinned && !m_dragging) {
+    if (event->type() == QEvent::WindowDeactivate && m_everActivated && !m_pinned && !m_dragging && !m_resizing) {
         close();
         return true;
     }
+
+    // The resize cursor is set on the window; drop it when the pointer leaves
+    // so it doesn't stick after a pass over the grip zone.
+    if (event->type() == QEvent::Leave && !m_resizing)
+        unsetCursor();
+
     return QWidget::event(event);
 }
 
@@ -481,6 +673,37 @@ void PopupWindow::showEvent(QShowEvent *event)
     // explicitly so Esc/focus-loss handling works from the moment it appears.
     raise();
     activateWindow();
+}
+
+void PopupWindow::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && startEdgeResize(event->globalPosition().toPoint())) {
+        event->accept();
+        return;
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void PopupWindow::mouseMoveEvent(QMouseEvent *event)
+{
+    const QPoint globalPos = event->globalPosition().toPoint();
+    if (continueEdgeResize(globalPos)) {
+        event->accept();
+        return;
+    }
+    if (!event->buttons())
+        updateResizeCursor(globalPos);
+    QWidget::mouseMoveEvent(event);
+}
+
+void PopupWindow::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (m_resizing) {
+        finishEdgeResize(event->globalPosition().toPoint());
+        event->accept();
+        return;
+    }
+    QWidget::mouseReleaseEvent(event);
 }
 
 bool PopupWindow::eventFilter(QObject *watched, QEvent *event)
@@ -503,6 +726,9 @@ bool PopupWindow::eventFilter(QObject *watched, QEvent *event)
         case QEvent::MouseButtonPress: {
             auto *me = static_cast<QMouseEvent *>(event);
             if (me->button() == Qt::LeftButton) {
+                // Near a card edge the press resizes; anywhere else it moves.
+                if (startEdgeResize(me->globalPosition().toPoint()))
+                    return true;
                 m_dragging = true;
                 m_dragOffset = me->globalPosition().toPoint() - frameGeometry().topLeft();
                 return true;
@@ -511,17 +737,31 @@ bool PopupWindow::eventFilter(QObject *watched, QEvent *event)
         }
         case QEvent::MouseMove: {
             auto *me = static_cast<QMouseEvent *>(event);
+            if (continueEdgeResize(me->globalPosition().toPoint()))
+                return true;
             if (m_dragging && (me->buttons() & Qt::LeftButton)) {
                 move(me->globalPosition().toPoint() - m_dragOffset);
                 return true;
             }
+            if (!me->buttons())
+                updateResizeCursor(me->globalPosition().toPoint());
             break;
         }
-        case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonRelease: {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (m_resizing) {
+                finishEdgeResize(me->globalPosition().toPoint());
+                return true;
+            }
             if (m_dragging) {
                 m_dragging = false;
                 return true;
             }
+            break;
+        }
+        case QEvent::Leave:
+            if (!m_resizing)
+                unsetCursor();
             break;
         default:
             break;

@@ -298,7 +298,7 @@ signals:
 
 ## 7. UI 设计（ui/）
 
-- **PopupWindow**：无边框圆角卡片。顶部原文（可折叠）+ 语言对与切换；下方每个引擎一张结果卡（引擎名、结果、复制按钮、朗读按钮二期）；`Esc`/失焦关闭（layer-shell 下用 keyboard interactivity=on_demand 拿 Esc）。固定态按钮（📌）：钉住后失焦不关。键盘操作（对标 Bob）：`Ctrl+P` 钉住、`Ctrl+S` 星标（单词场景）、`Ctrl+Shift+C` 复制首个成功结果、`Ctrl+Enter`（OCR 源框）重翻。标题栏含目标语言快速切换下拉（写全局规则并立即重翻）；主窗口翻译页工具栏有同款下拉（下次翻译生效）。
+- **PopupWindow**：无边框圆角卡片。顶部原文（可折叠）+ 语言对与切换；下方每个引擎一张结果卡（引擎名、结果、复制按钮、朗读按钮二期）；`Esc`/失焦关闭（layer-shell 下用 keyboard interactivity=on_demand 拿 Esc）。固定态按钮（📌）：钉住后失焦不关。键盘操作（对标 Bob）：`Ctrl+P` 钉住、`Ctrl+S` 星标（单词场景）、`Ctrl+Shift+C` 复制首个成功结果、`Ctrl+Enter`（OCR 源框）重翻。标题栏含目标语言快速切换下拉（写全局规则并立即重翻）；主窗口翻译页工具栏有同款下拉（下次翻译生效）。支持从卡片边缘/阴影环拖拽调整大小：手动实现（不走 `startSystemResize`，X11/Wayland/layer-shell 行为一致且不触发失焦关闭）。宽高不对称：**宽度**是用户偏好，记忆并持久化到 `popup/width`，后续弹窗沿用（高度按新宽度重新自动计算）；**高度**始终由内容自动推导（`adjustPopupSize`），用户拖高度仅对当前弹窗生效，下一次请求恢复自动高度。
 - **CaptureOverlay**:全屏截图冻结帧 + 变暗 + 拖拽选框 + 尺寸提示，多屏各一个 overlay。X11 下全屏无边框窗口；Wayland 下 layer-shell overlay 层 + 独占键盘（Esc 取消）。
 - **MainWindow**：单列扁平侧栏 + 堆叠页（主流划词翻译工具的布局）——翻译（输入翻译）/ 历史 / 生词本（后两者见 §8），下接「设置」分组标题：常规 / 快捷键 / 服务 / OCR / 平台，无二级导航。
 - **设置页**：常规（语言对、启动项，SettingsSections）/ 快捷键（含 Null 后端时的绑定指引与一键复制命令）/ 服务（ServicesPage，见下）/ OCR / 平台（后端探测结果展示与强制覆盖）。配置改动即写即生效；服务相关改动经 app 层防抖后热重载引擎集。
@@ -379,7 +379,7 @@ CREATE TABLE vocab (
 ## 10. 配置（core/Settings）
 
 - `~/.config/way2trans/way2trans.conf`，QSettings INI，文件权限 0600（含 API key）。
-- 分组：`[general]` 语言对规则（`targetLangRule`：`zh-en` 自动中英互译，或 `to:<BCP-47>` 固定目标语言，旧值 `to-zh`/`to-en` 兼容映射；固定目标与检测源语言相同时回退自动规则，避免 ja→ja 空转）、开机自启、翻译完成自动复制首个结果（`autoCopyResult`，默认关）；`[hotkeys]`；`[services/<uuid>]` 服务实例（type/name/enabled/order/key…，旧版 `[engines/<type>]` 首启时自动迁移）；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置。
+- 分组：`[general]` 语言对规则（`targetLangRule`：`zh-en` 自动中英互译，或 `to:<BCP-47>` 固定目标语言，旧值 `to-zh`/`to-en` 兼容映射；固定目标与检测源语言相同时回退自动规则，避免 ja→ja 空转）、开机自启、翻译完成自动复制首个结果（`autoCopyResult`，默认关）；`[hotkeys]`；`[services/<uuid>]` 服务实例（type/name/enabled/order/key…，旧版 `[engines/<type>]` 首启时自动迁移）；`[ocr]`；`[platform]` 后端强制覆盖；`[popup]` 锚定位置与用户拖拽调整后的弹窗宽度（高度不持久化，始终自动）。
 - API key 一期明文存本地（0600 + 文档说明），二期可选 QtKeychain。
 - 配置变更全部通过 `Settings` 单例信号广播，无需重启生效。
 - Qt 6.4 的 INI 后端把 `general` 组写成 `[%General]` 段、读回时却解析成大写 `General/*` 键（Unix 上键区分大小写，后续 Qt 已修复），导致整组配置重启即失效。`Settings` 内部读取统一走带回退的助手（先查 `general/x`，缺失再查 `General/x`），写入保持小写；所有配置读写必须经过 `Settings` 单例，不得自建 QSettings。

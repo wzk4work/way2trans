@@ -108,6 +108,14 @@ add_test(NAME tst_captureoverlay COMMAND tst_captureoverlay)
 set_tests_properties(tst_captureoverlay PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# --- ui: PopupWindow drag-to-resize ------------------------------------------
+add_executable(tst_popupwindow ui/tst_popupwindow.cpp)
+target_link_libraries(tst_popupwindow PRIVATE Qt6::Test way2trans_ui way2trans_core)
+add_test(NAME tst_popupwindow COMMAND tst_popupwindow)
+# Hermetic config: the popup persists its user-dragged size to Settings.
+set_tests_properties(tst_popupwindow PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-popup;QT_QPA_PLATFORM=offscreen")
+
 # --- ui: MainWindow sidebar shell smoke test (M4) ---------------------------
 add_executable(tst_mainwindow ui/tst_mainwindow.cpp)
 target_link_libraries(tst_mainwindow PRIVATE Qt6::Test way2trans_ui way2trans_core)
