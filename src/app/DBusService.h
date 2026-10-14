@@ -20,8 +20,7 @@ inline constexpr auto kInterfaceName = WAY2TRANS_APP_ID;
 // Application, which holds the actual UI/lifecycle state. Using
 // QDBusAbstractAdaptor gives us automatic introspection XML from the moc
 // scan of the public slots below.
-class DBusService : public QDBusAbstractAdaptor
-{
+class DBusService : public QDBusAbstractAdaptor {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", WAY2TRANS_APP_ID)
 
@@ -31,6 +30,7 @@ public:
 public slots:
     void TriggerSelection();
     void TriggerCapture();
+    void TriggerCaptureOcr();
     void TriggerClipboard();
     void ShowMain();
     QString Translate(const QString &text);

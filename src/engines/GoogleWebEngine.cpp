@@ -15,8 +15,6 @@
 namespace {
 constexpr auto kEngineId = "google";
 constexpr auto kDefaultHost = "translate.googleapis.com";
-// Settings key allowing the host to be swapped for a mirror / reverse proxy.
-constexpr auto kKeyHost = "engines/google/host";
 
 // The translate_a/single body is a JSON array whose slots vary by requested dt
 // flags. Layout we rely on:
@@ -69,27 +67,23 @@ GoogleWebEngine::GoogleWebEngine(QNetworkAccessManager *nam, QObject *parent)
     , m_nam(nam)
 { }
 
-QString GoogleWebEngine::id() const
+QString GoogleWebEngine::typeId() const
 {
     return QString::fromLatin1(kEngineId);
 }
 
-QString GoogleWebEngine::displayName() const
+QString GoogleWebEngine::typeName() const
 {
     return QStringLiteral("Google");
-}
-
-QStringList GoogleWebEngine::configKeys() const
-{
-    return {QString::fromLatin1(kKeyHost)};
 }
 
 void GoogleWebEngine::translate(const TranslateRequest &req)
 {
     cancel();
 
-    const QString host
-        = Settings::instance().value(QString::fromLatin1(kKeyHost), QString::fromLatin1(kDefaultHost)).toString();
+    const QString host = Settings::instance()
+                             .value(configGroup() + QStringLiteral("/host"), QString::fromLatin1(kDefaultHost))
+                             .toString();
 
     QUrl url(QStringLiteral("https://%1/translate_a/single").arg(host));
     QUrlQuery query;
@@ -117,14 +111,16 @@ void GoogleWebEngine::translate(const TranslateRequest &req)
 
         if (reply->error() != QNetworkReply::NoError) {
             TranslateResult r;
-            r.engineId = QString::fromLatin1(kEngineId);
+            r.engineId = id();
             r.error = tr("Network error: %1").arg(reply->errorString());
             qCWarning(w2tEngines) << "google network error" << reply->errorString();
             emit resultReady(r);
             return;
         }
 
-        emit resultReady(parseResponse(reply->readAll()));
+        TranslateResult parsedResult = parseResponse(reply->readAll());
+        parsedResult.engineId = id();
+        emit resultReady(parsedResult);
     });
 }
 
@@ -138,8 +134,7 @@ void GoogleWebEngine::cancel()
 
 TranslateResult GoogleWebEngine::parseResponse(const QByteArray &body)
 {
-    TranslateResult result;
-    result.engineId = QString::fromLatin1(kEngineId);
+    TranslateResult result; // engineId is stamped by the caller (static context)
 
     QJsonParseError err {};
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);

@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "AutostartManager.h"
 #include "CaptureOverlay.h"
 #include "DBusService.h"
 #include "HotkeyBackend.h"
@@ -12,8 +13,9 @@
 #include "PopupPlacement.h"
 #include "PopupWindow.h"
 #include "SelectionSource.h"
+#include "ServiceInstances.h"
+#include "ServicesPage.h"
 #include "Settings.h"
-#include "SettingsDialog.h"
 #include "TranslateService.h"
 #include "TrayIcon.h"
 #include "engines/EngineRegistry.h"
@@ -21,6 +23,7 @@
 #include "engines/TranslateTypes.h"
 #include "screenshot/ScreenshotBackend.h"
 
+#include <QClipboard>
 #include <QCommandLineParser>
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -42,6 +45,8 @@ QString dbusMethodForTrigger(const QString &trigger)
         return QStringLiteral("TriggerSelection");
     if (trigger == QLatin1String("capture"))
         return QStringLiteral("TriggerCapture");
+    if (trigger == QLatin1String("capture-ocr"))
+        return QStringLiteral("TriggerCaptureOcr");
     if (trigger == QLatin1String("clipboard"))
         return QStringLiteral("TriggerClipboard");
     if (trigger == QLatin1String("show-main"))
@@ -77,6 +82,12 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
         QStringLiteral("Translate the given text and print the result."), QStringLiteral("text"));
     parser.addOption(textOption);
 
+    // Silent start (DESIGN.md §9): stay resident in the tray without showing
+    // the main window. This is how the autostart entry launches the daemon.
+    QCommandLineOption hiddenOption(QStringList {QStringLiteral("hidden")},
+        QStringLiteral("Start in the background without showing the main window."));
+    parser.addOption(hiddenOption);
+
     // Headless verification entry (DESIGN.md §13 M3): OCR an image file, then
     // translate the recognised text, printing both. Not part of the daemon.
     QCommandLineOption ocrTestOption(QStringList {QStringLiteral("ocr-test")},
@@ -85,7 +96,7 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
 
     // Positional: `trigger <action>`.
     parser.addPositionalArgument(
-        QStringLiteral("command"), QStringLiteral("trigger <selection|capture|clipboard|show-main>"));
+        QStringLiteral("command"), QStringLiteral("trigger <selection|capture|capture-ocr|clipboard|show-main>"));
 
     auto invalid = [](const QString &reason) {
         CliAction a;
@@ -121,13 +132,16 @@ CliAction Application::parseCommandLine(const QStringList &arguments)
 
     const QStringList positional = parser.positionalArguments();
     if (positional.isEmpty()) {
-        return CliAction {}; // Kind::RunDaemon by default
+        CliAction action; // Kind::RunDaemon by default
+        action.startHidden = parser.isSet(hiddenOption);
+        return action;
     }
 
     const QString command = positional.first();
     if (command == QLatin1String("trigger")) {
         if (positional.size() < 2) {
-            return invalid(QStringLiteral("'trigger' requires an action: selection|capture|clipboard|show-main"));
+            return invalid(
+                QStringLiteral("'trigger' requires an action: selection|capture|capture-ocr|clipboard|show-main"));
         }
         const QString action = positional.at(1);
         if (dbusMethodForTrigger(action).isEmpty()) {
@@ -191,9 +205,26 @@ int Application::runAsPrimary(const CliAction &initialAction)
     m_mainWindow->setServices(m_translateService, m_libraryService);
     connect(m_mainWindow.get(), &MainWindow::inputTranslationRequested, this, [this](const QString &text) {
         m_currentTrigger = QStringLiteral("input");
+        m_popupSourceEditable = false;
         m_translateService->translate(text);
     });
-    connect(m_mainWindow.get(), &MainWindow::settingsRequested, this, &Application::openSettings);
+    // Settings is a page inside the main window now. Inject the connectivity
+    // tester (the app owns the engine subsystem, so ui/ never links engines/)
+    // and apply engine config edits behind a short debounce, since the page
+    // writes through to Settings on every keystroke.
+    m_mainWindow->servicesPage()->setEngineTester(
+        [this](const QString &engineId, std::function<void(bool, QString)> done) {
+            testEngineConnectivity(engineId, std::move(done));
+        });
+    m_engineReloadTimer = new QTimer(this);
+    m_engineReloadTimer->setSingleShot(true);
+    m_engineReloadTimer->setInterval(600);
+    connect(m_engineReloadTimer, &QTimer::timeout, this, [this]() {
+        if (m_translateService)
+            m_translateService->reloadEngines();
+    });
+    connect(
+        m_mainWindow->servicesPage(), &ServicesPage::enginesChanged, m_engineReloadTimer, qOverload<>(&QTimer::start));
 
     m_tray = std::make_unique<TrayIcon>(this);
     if (m_tray->isAvailable()) {
@@ -287,6 +318,14 @@ bool Application::forwardToRunningInstance(const CliAction &action)
         return true;
     }
 
+    // A hidden bare launch means "make sure the daemon runs", nothing more.
+    // One is already running, so don't yank its main window to the front
+    // (this is the duplicate-instance path when autostart fires at login).
+    if (action.kind == CliAction::Kind::RunDaemon && action.startHidden) {
+        qCInfo(w2tApp) << "Instance already running; hidden launch exits without forwarding";
+        return true;
+    }
+
     const QString method
         = dbusMethodForTrigger(action.kind == CliAction::Kind::Trigger ? action.trigger : QStringLiteral("show-main"));
     QDBusReply<void> reply = iface.call(method);
@@ -306,6 +345,8 @@ void Application::dispatch(const CliAction &action)
             triggerSelection();
         else if (action.trigger == QLatin1String("capture"))
             triggerCapture();
+        else if (action.trigger == QLatin1String("capture-ocr"))
+            triggerCaptureOcr();
         else if (action.trigger == QLatin1String("clipboard"))
             triggerClipboard();
         else if (action.trigger == QLatin1String("show-main"))
@@ -322,8 +363,10 @@ void Application::dispatch(const CliAction &action)
         break;
     case CliAction::Kind::RunDaemon:
         // Bare launch: just sit resident. Show the window so first-run users
-        // see something; later milestones may make this configurable.
-        showMainWindow();
+        // see something; --hidden (the autostart entry, DESIGN.md §9) keeps
+        // the daemon in the tray instead.
+        if (!action.startHidden)
+            showMainWindow();
         break;
     case CliAction::Kind::Invalid:
         qCWarning(w2tApp) << "Ignoring invalid action:" << action.errorText;
@@ -339,6 +382,10 @@ void Application::setupServices()
     // integration is installed in time (no-op on X11).
     PlatformFactory::prepareWindowing();
 
+    // Keeps the XDG autostart entry in sync with the settings toggle and
+    // heals a stale Exec path on every launch (DESIGN.md §10).
+    new AutostartManager(this);
+
     // Core translation service (owns the shared QNetworkAccessManager + engines).
     m_translateService = new TranslateService(this);
 
@@ -353,7 +400,15 @@ void Application::setupServices()
     // Editing the recognised text in the OCR popup re-runs the translation.
     connect(m_popup.get(), &PopupWindow::sourceEdited, this, [this](const QString &newText) {
         m_currentTrigger = QStringLiteral("input"); // an edited re-translation
+        m_popupSourceEditable = true; // keep the source editable across re-runs
         m_translateService->translate(newText);
+    });
+    // Target language switched in the popup: re-run the current request so
+    // the cards refill in the new language (trigger/editability unchanged;
+    // the history dedupe window folds it into the same row).
+    connect(m_popup.get(), &PopupWindow::targetLangChanged, this, [this]() {
+        if (!m_currentRequest.text.trimmed().isEmpty())
+            m_translateService->translate(m_currentRequest.text);
     });
     // Vocabulary star: save/remove the current word (DESIGN.md §8.3).
     connect(m_popup.get(), &PopupWindow::saveRequested, this, [this](const QString &word, const QString &context) {
@@ -371,11 +426,17 @@ void Application::setupServices()
     connect(m_translateService, &TranslateService::requestStarted, this,
         [this](const TranslateRequest &req, const QStringList &ids) {
             m_currentRequest = req;
+            m_requestEngineOrder = ids; // service order = history priority
+            m_requestResults.clear();
             m_historyRecorded = false;
+            m_autoCopied = false;
             m_lastGoodResult = {};
+            QHash<QString, QString> names;
+            for (const QString &id : ids)
+                names.insert(id, m_translateService->engineDisplayName(id));
             // The source box is editable only for the screenshot/OCR flow so the
             // user can correct a misrecognition and re-translate (DESIGN.md §3.2).
-            m_popup->beginRequest(req, ids, m_captureInProgress);
+            m_popup->beginRequest(req, ids, names, m_popupSourceEditable);
         });
     connect(m_translateService, &TranslateService::partialResult, this,
         [this](const QString &engineId, const QString &delta) { m_popup->applyPartial(engineId, delta); });
@@ -386,15 +447,36 @@ void Application::setupServices()
             qCWarning(w2tApp) << "result" << result.engineId << "error:" << result.error;
         m_popup->applyResult(result);
 
-        if (result.ok()) {
-            // Record history once per request, on the first successful result
-            // (DESIGN.md §8.2). Remember it as the snapshot the star will save.
-            m_lastGoodResult = result;
-            if (!m_historyRecorded) {
-                m_historyRecorded = true;
-                if (m_libraryService)
-                    m_libraryService->recordHistory(m_currentTrigger, m_currentRequest, result);
+        // History records the first engine *in service order* that succeeded,
+        // not the fastest responder, so the stored result is deterministic
+        // (DESIGN.md §8.2). A failure can also resolve the decision (it hands
+        // the win to the next engine down), so this walk runs on every result.
+        m_requestResults.insert(result.engineId, result);
+        if (!m_historyRecorded) {
+            for (const QString &id : std::as_const(m_requestEngineOrder)) {
+                const auto it = m_requestResults.constFind(id);
+                if (it == m_requestResults.constEnd())
+                    break; // a higher-priority engine is still pending
+                if (it->ok()) {
+                    m_historyRecorded = true;
+                    if (m_libraryService)
+                        m_libraryService->recordHistory(m_currentTrigger, m_currentRequest, *it);
+                    break;
+                }
+                // This engine failed: the next one in order inherits the win.
             }
+        }
+
+        if (result.ok()) {
+            // Auto-copy the first successful result if enabled (DESIGN.md §10) —
+            // deliberately the fastest responder, since the point is having
+            // something to paste immediately.
+            if (!m_autoCopied && Settings::instance().value(QStringLiteral("general/autoCopyResult"), false).toBool()) {
+                m_autoCopied = true;
+                QApplication::clipboard()->setText(result.translatedText);
+            }
+            // Remember the latest ok result as the snapshot the star will save.
+            m_lastGoodResult = result;
             // Light the star if this word is already saved (DESIGN.md §8.3).
             if (m_libraryService) {
                 const QString word = (result.dict.has_value() && !result.dict->word.isEmpty())
@@ -422,6 +504,8 @@ void Application::setupServices()
             triggerSelection();
         else if (actionId == QLatin1String("translate-capture"))
             triggerCapture();
+        else if (actionId == QLatin1String("capture-ocr"))
+            triggerCaptureOcr();
         else if (actionId == QLatin1String("translate-clipboard"))
             triggerClipboard();
         else if (actionId == QLatin1String("show-main"))
@@ -450,6 +534,17 @@ void Application::setupServices()
         qCInfo(w2tApp) << "translate-capture hotkey not grabbed (" << m_hotkeyBackend->name()
                        << "); use `way2trans trigger capture`";
 
+    const QString ocrSeq = Settings::instance()
+                               .value(QStringLiteral("hotkeys/capture-ocr"), QStringLiteral("Ctrl+Alt+Shift+S"))
+                               .toString();
+    const bool ocrGrabbed = m_hotkeyBackend->registerAction(
+        QStringLiteral("capture-ocr"), QKeySequence(ocrSeq), tr("Screenshot OCR to clipboard"));
+    if (ocrGrabbed)
+        qCInfo(w2tApp) << "capture-ocr hotkey registered:" << ocrSeq;
+    else
+        qCInfo(w2tApp) << "capture-ocr hotkey not grabbed (" << m_hotkeyBackend->name()
+                       << "); use `way2trans trigger capture-ocr`";
+
     // --- M3 screenshot translation ---------------------------------------
     m_screenshotBackend = PlatformFactory::createScreenshotBackend(this);
     connect(m_screenshotBackend, &ScreenshotBackend::captured, this, &Application::onScreensCaptured);
@@ -463,6 +558,17 @@ void Application::setupServices()
         qCInfo(w2tApp) << "OCR text (" << text.size() << "chars):" << text.left(60);
         if (text.trimmed().isEmpty()) {
             m_captureInProgress = false;
+            if (m_captureMode == CaptureMode::SilentOcr && m_tray && m_tray->isAvailable())
+                m_tray->notifyOcrEmpty();
+            return;
+        }
+        // Silent capture OCR (DESIGN.md §3.4): the text goes straight to the
+        // clipboard — no popup, no translation, no history row.
+        if (m_captureMode == CaptureMode::SilentOcr) {
+            m_captureInProgress = false;
+            QApplication::clipboard()->setText(text);
+            if (m_tray && m_tray->isAvailable())
+                m_tray->notifyOcrCopied(text.left(80));
             return;
         }
         // Show the popup beside the selection, then translate (DESIGN.md §3.2).
@@ -476,9 +582,13 @@ void Application::setupServices()
             m_popup->activateWindow();
         }
         m_currentTrigger = QStringLiteral("capture");
+        // The capture flow is done once translation is kicked off: release the
+        // re-entry guard so the hotkey can start a new capture. Editability of
+        // the popup source is a separate flag — it stays on so the user can
+        // correct the recognised text and re-translate.
+        m_captureInProgress = false;
+        m_popupSourceEditable = true;
         m_translateService->translate(text);
-        // The flow is done once translation is kicked off; the editable-source
-        // flag stays true until the next capture so re-translation on edit works.
     });
     connect(m_ocrService, &OcrService::failed, this, [this](const QString &reason) {
         qCWarning(w2tApp) << "OCR failed:" << reason;
@@ -500,6 +610,11 @@ void Application::translateSelectionText(const QString &text)
         return;
     }
 
+    startPopupTranslation(text, QStringLiteral("selection"));
+}
+
+void Application::startPopupTranslation(const QString &text, const QString &trigger)
+{
     // Show the popup (skeleton) at the cursor before results arrive, then kick
     // off the translation.
     if (m_popup && m_popupPlacement) {
@@ -508,7 +623,8 @@ void Application::translateSelectionText(const QString &text)
         m_popup->raise();
         m_popup->activateWindow();
     }
-    m_currentTrigger = QStringLiteral("selection");
+    m_currentTrigger = trigger;
+    m_popupSourceEditable = false;
     m_translateService->translate(text);
 }
 
@@ -527,8 +643,19 @@ void Application::triggerSelection()
 void Application::triggerCapture()
 {
     qCInfo(w2tApp) << "triggerCapture";
+    startCapture(CaptureMode::Translate);
+}
+
+void Application::triggerCaptureOcr()
+{
+    qCInfo(w2tApp) << "triggerCaptureOcr";
+    startCapture(CaptureMode::SilentOcr);
+}
+
+void Application::startCapture(CaptureMode mode)
+{
     if (!m_screenshotBackend || !m_ocrService) {
-        qCWarning(w2tApp) << "triggerCapture before services ready";
+        qCWarning(w2tApp) << "capture requested before services ready";
         return;
     }
     if (m_captureInProgress) {
@@ -542,6 +669,7 @@ void Application::triggerCapture()
             m_tray->notifyOcrUnavailable(m_ocrService->unavailableHint());
         return;
     }
+    m_captureMode = mode;
     m_captureInProgress = true;
     m_screenshotBackend->captureFullScreen();
 }
@@ -626,7 +754,17 @@ void Application::closeOverlays()
 
 void Application::triggerClipboard()
 {
-    qCInfo(w2tApp) << "triggerClipboard (M0 stub)";
+    // CLIPBOARD (not PRIMARY) through the same popup flow — the fallback entry
+    // for environments where selection fetching is unavailable (DESIGN.md §3.3).
+    qCInfo(w2tApp) << "triggerClipboard";
+    const QString text = QApplication::clipboard()->text(QClipboard::Clipboard);
+    if (text.trimmed().isEmpty()) {
+        qCInfo(w2tApp) << "clipboard empty; showing nothing";
+        if (m_tray && m_tray->isAvailable())
+            m_tray->notifyClipboardEmpty();
+        return;
+    }
+    startPopupTranslation(text, QStringLiteral("clipboard"));
 }
 
 void Application::showMainWindow()
@@ -644,41 +782,43 @@ void Application::showMainWindow()
 void Application::openSettings()
 {
     qCInfo(w2tApp) << "openSettings";
-    SettingsDialog dialog(m_mainWindow ? m_mainWindow.get() : nullptr);
+    // Settings lives inside the main window: bring it up on the settings page.
+    showMainWindow();
+    m_mainWindow->showSettings();
+}
 
+void Application::testEngineConnectivity(const QString &engineId, std::function<void(bool, QString)> done)
+{
     // Connectivity test: run a one-shot "hello" through a throwaway engine
-    // instance so the dialog can report reachability without touching the live
-    // engine set (app owns the engine subsystem, so ui/ never links engines/).
-    dialog.setEngineTester([this](const QString &engineId, std::function<void(bool, QString)> done) {
-        auto *engine = EngineRegistry::create(engineId, m_translateService->networkManager(), this);
-        if (!engine) {
-            done(false, tr("Unknown engine"));
-            return;
-        }
-        // Own the engine only for the duration of this test.
-        auto *guard = new QTimer(engine);
-        guard->setSingleShot(true);
-        connect(engine, &TranslateEngine::resultReady, this, [engine, done](const TranslateResult &r) {
-            done(r.ok(), r.ok() ? r.translatedText.left(40) : r.error);
-            engine->deleteLater();
-        });
-        connect(guard, &QTimer::timeout, this, [engine, done]() {
-            done(false, tr("Timed out"));
-            engine->deleteLater();
-        });
-        guard->start(10000);
-        TranslateRequest req;
-        req.text = QStringLiteral("hello");
-        req.sourceLang = QStringLiteral("auto");
-        req.targetLang = QStringLiteral("zh-CN");
-        engine->translate(req);
+    // instance so the settings page can report reachability without touching
+    // the live engine set. `engineId` is a service instance id; resolve its
+    // engine type and bind the instance's config group.
+    const QString group = ServiceInstances::configGroup(engineId);
+    const QString type = Settings::instance().value(group + QStringLiteral("/type")).toString();
+    auto *engine = EngineRegistry::create(type.isEmpty() ? engineId : type, m_translateService->networkManager(), this);
+    if (!engine) {
+        done(false, tr("Unknown engine"));
+        return;
+    }
+    if (!type.isEmpty())
+        engine->setInstance(engineId, QString(), group);
+    // Own the engine only for the duration of this test.
+    auto *guard = new QTimer(engine);
+    guard->setSingleShot(true);
+    connect(engine, &TranslateEngine::resultReady, this, [engine, done](const TranslateResult &r) {
+        done(r.ok(), r.ok() ? r.translatedText.left(40) : r.error);
+        engine->deleteLater();
     });
-
-    dialog.exec();
-
-    // Apply engine enable/disable/order changes made in the dialog.
-    if (m_translateService)
-        m_translateService->reloadEngines();
+    connect(guard, &QTimer::timeout, this, [engine, done]() {
+        done(false, tr("Timed out"));
+        engine->deleteLater();
+    });
+    guard->start(10000);
+    TranslateRequest req;
+    req.text = QStringLiteral("hello");
+    req.sourceLang = QStringLiteral("auto");
+    req.targetLang = QStringLiteral("zh-CN");
+    engine->translate(req);
 }
 
 QString Application::translate(const QString &text)

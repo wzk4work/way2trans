@@ -3,9 +3,11 @@
 #include "engines/TranslateTypes.h"
 
 #include <QApplication>
+#include <QHash>
 #include <QList>
 #include <QRect>
 #include <QString>
+#include <functional>
 #include <memory>
 
 class DBusService;
@@ -20,6 +22,7 @@ class TranslateService;
 class OcrService;
 class LibraryService;
 class CaptureOverlay;
+class QTimer;
 struct ScreenImage;
 
 // Result of parsing the command line into a single deferred action.
@@ -33,6 +36,7 @@ struct CliAction {
     };
 
     Kind kind = Kind::RunDaemon;
+    bool startHidden = false; // for Kind::RunDaemon: `--hidden`, stay in the tray
     QString trigger; // for Kind::Trigger
     QString text; // for Kind::TranslateText
     QString imagePath; // for Kind::OcrTest
@@ -80,6 +84,7 @@ public:
     // --- Actions (invoked by D-Bus, tray, CLI) ---------------------------
     void triggerSelection();
     void triggerCapture();
+    void triggerCaptureOcr(); // silent capture OCR: recognise to clipboard (§3.4)
     void triggerClipboard();
     void showMainWindow();
     void openSettings();
@@ -90,6 +95,10 @@ public:
     LibraryService *libraryService() const { return m_libraryService; }
 
 private:
+    // What a capture does with the recognised text: translate in the popup
+    // (§3.2) or copy it straight to the clipboard (§3.4).
+    enum class CaptureMode { Translate, SilentOcr };
+
     // Perform a parsed action against this (primary) instance.
     void dispatch(const CliAction &action);
 
@@ -102,10 +111,19 @@ private:
     void setupServices();
 
     // Show the result popup near the cursor and kick off a translation.
+    // `trigger` is the history trigger tag: selection | clipboard.
+    void startPopupTranslation(const QString &text, const QString &trigger);
+    // The selection flow on top of it: empty selections get a tray hint.
     void translateSelectionText(const QString &text);
 
+    // Run a one-shot "hello" through a throwaway engine instance and report
+    // reachability (settings page connectivity test, DESIGN.md §7).
+    void testEngineConnectivity(const QString &engineId, std::function<void(bool, QString)> done);
+
     // Screenshot-translation pipeline (DESIGN.md §3.2): capture -> overlay ->
-    // OCR -> translate -> popup beside the selection.
+    // OCR -> translate -> popup beside the selection. The silent variant
+    // (§3.4) shares it and diverts the recognised text to the clipboard.
+    void startCapture(CaptureMode mode);
     void onScreensCaptured(const QList<ScreenImage> &screens);
     void onRegionSelected(const QImage &cropped, const QRect &screenRect);
     void startOcrAndTranslate(const QImage &image, const QRect &anchorRect);
@@ -131,11 +149,26 @@ private:
     OcrService *m_ocrService = nullptr; // owned via parent = this
     QList<CaptureOverlay *> m_overlays; // live overlays (WA_DeleteOnClose)
     QRect m_captureAnchor; // selection rect for popup placement
-    bool m_captureInProgress = false;
+    bool m_captureInProgress = false; // re-entry guard: overlay/OCR still running
+    // Mode of the capture in flight. One meaning only — the re-entry guard
+    // above stays a separate field (AGENTS.md).
+    CaptureMode m_captureMode = CaptureMode::Translate;
+    bool m_popupSourceEditable = false; // popup shows an editable source (OCR flow)
+
+    // Debounces SettingsPage::enginesChanged into reloadEngines(), so typing an
+    // API key doesn't rebuild the engine set on every keystroke.
+    QTimer *m_engineReloadTimer = nullptr;
 
     // M4 history/vocabulary bookkeeping for the in-flight request.
     QString m_currentTrigger; // selection|capture|input|clipboard
     TranslateRequest m_currentRequest; // request being translated right now
     TranslateResult m_lastGoodResult; // latest ok result (snapshot for the star)
-    bool m_historyRecorded = false; // only the first ok result is recorded
+    // History records the first *in service order* engine that succeeds — not
+    // the fastest responder — so what gets stored is deterministic (§8.2). The
+    // order comes from requestStarted; results collect here until the highest-
+    // priority pending engine resolves.
+    QStringList m_requestEngineOrder;
+    QHash<QString, TranslateResult> m_requestResults;
+    bool m_historyRecorded = false; // the ordered winner has been written
+    bool m_autoCopied = false; // auto-copy fired for this request (§10 autoCopyResult)
 };

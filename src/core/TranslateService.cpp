@@ -2,6 +2,7 @@
 
 #include "LangDetector.h"
 #include "Logging.h"
+#include "ServiceInstances.h"
 #include "Settings.h"
 #include "TextCleaner.h"
 #include "engines/EngineRegistry.h"
@@ -10,12 +11,15 @@
 #include <QNetworkAccessManager>
 
 namespace {
-// Results for the same (engine, text) pair are reused within this window.
+// Results for the same (engine, target language, text) triple are reused
+// within this window. The target language must be part of the key: the popup
+// re-translates in place when the user switches languages, and a text-only
+// key would serve the old-language result back.
 constexpr int kCacheTtlSeconds = 30;
 
-QString cacheKey(const QString &engineId, const QString &text)
+QString cacheKey(const QString &engineId, const TranslateRequest &req)
 {
-    return engineId + QLatin1Char('\n') + text;
+    return engineId + QLatin1Char('\n') + req.targetLang + QLatin1Char('\n') + req.text;
 }
 } // namespace
 
@@ -31,29 +35,41 @@ void TranslateService::reloadEngines()
     qDeleteAll(m_engines);
     m_engines.clear();
 
-    Settings &settings = Settings::instance();
-    for (const EngineRegistry::Entry &entry : EngineRegistry::entries()) {
-        const QString key = QStringLiteral("engines/%1/enabled").arg(entry.id);
-        const bool enabled = settings.value(key, entry.defaultEnabled).toBool();
-        if (!enabled)
+    // One engine object per enabled service instance ([services/<uuid>],
+    // Bob/Pot model): the instance list is already in display order, which
+    // decides the order of result cards in the popup and main window.
+    ServiceInstances::ensureSeeded();
+    const QList<ServiceInstance> instances = ServiceInstances::all();
+    for (const ServiceInstance &inst : instances) {
+        if (!inst.enabled)
             continue;
-        TranslateEngine *engine = EngineRegistry::create(entry.id, m_nam, this);
+        TranslateEngine *engine = EngineRegistry::create(inst.engineType, m_nam, this);
         if (!engine)
             continue;
+        engine->setInstance(inst.id, inst.name, ServiceInstances::configGroup(inst.id));
         connect(engine, &TranslateEngine::resultReady, this, [this](const TranslateResult &result) {
             if (result.ok())
                 m_cache.insert(
-                    cacheKey(result.engineId, m_lastRequest.text), CacheEntry {result, QDateTime::currentDateTime()});
+                    cacheKey(result.engineId, m_lastRequest), CacheEntry {result, QDateTime::currentDateTime()});
             emit resultReady(result);
         });
-        // Forward streaming deltas, tagging them with the engine id so the UI can
-        // route them to the right card (LLM streaming, DESIGN.md §5).
+        // Forward streaming deltas, tagging them with the instance id so the UI
+        // can route them to the right card (LLM streaming, DESIGN.md §5).
         const QString engineId = engine->id();
         connect(engine, &TranslateEngine::partialResult, this,
             [this, engineId](const QString &delta) { emit partialResult(engineId, delta); });
         m_engines << engine;
     }
     qCInfo(w2tCore) << "TranslateService active engines:" << activeEngineIds();
+}
+
+QString TranslateService::engineDisplayName(const QString &engineId) const
+{
+    for (const TranslateEngine *e : m_engines) {
+        if (e->id() == engineId)
+            return e->displayName();
+    }
+    return engineId;
 }
 
 QStringList TranslateService::activeEngineIds() const
@@ -66,11 +82,27 @@ QStringList TranslateService::activeEngineIds() const
 
 QString TranslateService::targetLangFor(const QString &sourceLang)
 {
-    // One-period hard-coded rule (reserved as a Settings key for later): a
-    // Chinese source translates to English, everything else to Chinese.
-    const QString rule
+    // Settings -> "language pair rule": "zh-en" (automatic Chinese ↔ English)
+    // or "to:<BCP-47>" pinning the target language. Legacy "to-zh"/"to-en"
+    // values map onto the "to:" form.
+    QString rule
         = Settings::instance().value(QStringLiteral("general/targetLangRule"), QStringLiteral("zh-en")).toString();
-    Q_UNUSED(rule); // only one rule implemented in M1
+    if (rule == QLatin1String("to-zh"))
+        rule = QStringLiteral("to:zh-CN");
+    else if (rule == QLatin1String("to-en"))
+        rule = QStringLiteral("to:en");
+
+    if (rule.startsWith(QLatin1String("to:"))) {
+        const QString target = rule.mid(3);
+        // Same-language guard: a pinned target equal to the detected source
+        // (ja -> ja) would be a no-op request; fall back to the auto pair.
+        if (sourceLang != QLatin1String("auto") && !sourceLang.isEmpty() && target.startsWith(sourceLang))
+            return sourceLang.startsWith(QStringLiteral("zh")) ? QStringLiteral("en") : QStringLiteral("zh-CN");
+        return target;
+    }
+
+    // "zh-en": a Chinese source translates to English, everything else to
+    // Chinese.
     if (sourceLang.startsWith(QStringLiteral("zh")))
         return QStringLiteral("en");
     return QStringLiteral("zh-CN");
@@ -107,7 +139,7 @@ void TranslateService::retry(const QString &engineId)
         return;
     for (TranslateEngine *engine : m_engines) {
         if (engine->id() == engineId) {
-            m_cache.remove(cacheKey(engineId, m_lastRequest.text));
+            m_cache.remove(cacheKey(engineId, m_lastRequest));
             dispatchTo(engine, m_lastRequest);
             return;
         }
@@ -117,7 +149,7 @@ void TranslateService::retry(const QString &engineId)
 void TranslateService::dispatchTo(TranslateEngine *engine, const TranslateRequest &req)
 {
     // Serve from the short-lived cache when fresh (DESIGN.md §5.1).
-    const auto it = m_cache.constFind(cacheKey(engine->id(), req.text));
+    const auto it = m_cache.constFind(cacheKey(engine->id(), req));
     if (it != m_cache.constEnd() && it->at.secsTo(QDateTime::currentDateTime()) < kCacheTtlSeconds) {
         qCDebug(w2tCore) << "cache hit for" << engine->id();
         // Re-emit asynchronously so listeners see consistent ordering with live

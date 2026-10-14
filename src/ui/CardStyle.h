@@ -5,13 +5,14 @@
 namespace w2t::ui {
 
 // Shared stylesheet for engine result cards so the popup and the main window
-// render results identically: a rounded body box (#resultBox) with a
-// transparent inner text edit (#resultBody), an accent engine name, and compact
-// card buttons. Kept in one place to avoid the two call sites drifting apart.
+// render results identically: one rounded surface (#resultBox) holding the
+// header row (engine name + actions + collapse chevron) and a transparent
+// inner text edit (#resultBody). Kept in one place to avoid the two call
+// sites drifting apart.
 inline QString cardStyleSheet()
 {
     return QStringLiteral(
-        // The card is a transparent layout group; the body box below is the
+        // The card root is a transparent layout group; the box below is the
         // visible rounded surface, so results aren't double-boxed.
         "#engineCard { background: transparent; }"
         "#engineName {"
@@ -22,7 +23,7 @@ inline QString cardStyleSheet()
         "#resultBox {"
         "  background: palette(base);"
         "  border: 1px solid palette(midlight);"
-        "  border-radius: 8px;"
+        "  border-radius: 10px;"
         "}"
         "#resultBody { background: transparent; border: none; }"
         "QToolButton#cardButton {"

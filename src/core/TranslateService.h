@@ -26,11 +26,15 @@ class TranslateService : public QObject {
 public:
     explicit TranslateService(QObject *parent = nullptr);
 
-    // (Re)build the engine set from Settings ([engines/<id>] enabled flags).
+    // (Re)build the engine set from the service instance list ([services/<id>],
+    // see ServiceInstances): one engine object per enabled instance.
     void reloadEngines();
 
-    // The engine ids currently active, in display order.
+    // The engine (service instance) ids currently active, in display order.
     QStringList activeEngineIds() const;
+
+    // User-visible name for an active engine id (falls back to the id).
+    QString engineDisplayName(const QString &engineId) const;
 
     // Detect the source language, apply the target-language rule and fan the
     // request out to all enabled engines. Emits requestStarted() with the

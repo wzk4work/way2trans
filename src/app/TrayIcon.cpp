@@ -30,6 +30,9 @@ TrayIcon::TrayIcon(Application *app, QObject *parent)
     auto *captureAction = m_menu->addAction(tr("Translate Screenshot"));
     connect(captureAction, &QAction::triggered, m_app, &Application::triggerCapture);
 
+    auto *captureOcrAction = m_menu->addAction(tr("Screenshot OCR to Clipboard"));
+    connect(captureOcrAction, &QAction::triggered, m_app, &Application::triggerCaptureOcr);
+
     auto *clipboardAction = m_menu->addAction(tr("Translate Clipboard"));
     connect(clipboardAction, &QAction::triggered, m_app, &Application::triggerClipboard);
 
@@ -95,10 +98,33 @@ void TrayIcon::notifyNoSelection()
     }
 }
 
+void TrayIcon::notifyClipboardEmpty()
+{
+    if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
+        m_tray->showMessage(
+            QStringLiteral("way2trans"), tr("Clipboard has no text"), QSystemTrayIcon::Information, 1500);
+    }
+}
+
 void TrayIcon::notifyOcrUnavailable(const QString &hint)
 {
     if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
         const QString message = hint.isEmpty() ? tr("Screenshot translation is unavailable") : hint;
         m_tray->showMessage(QStringLiteral("way2trans"), message, QSystemTrayIcon::Warning, 4000);
+    }
+}
+
+void TrayIcon::notifyOcrCopied(const QString &preview)
+{
+    if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
+        m_tray->showMessage(tr("Copied to clipboard"), preview, QSystemTrayIcon::Information, 2000);
+    }
+}
+
+void TrayIcon::notifyOcrEmpty()
+{
+    if (m_tray->isVisible() && QSystemTrayIcon::supportsMessages()) {
+        m_tray->showMessage(
+            QStringLiteral("way2trans"), tr("No text was recognised"), QSystemTrayIcon::Information, 1500);
     }
 }

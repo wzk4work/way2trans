@@ -62,6 +62,7 @@ QString LangDetector::detectLang(const QString &text)
     int han = 0;
     int kana = 0;
     int hangul = 0;
+    int latin = 0;
     for (uint cp : ucs4) {
         switch (scriptForChar(cp)) {
         case Script::Han:
@@ -73,6 +74,9 @@ QString LangDetector::detectLang(const QString &text)
         case Script::Hangul:
             ++hangul;
             break;
+        case Script::Latin:
+            ++latin;
+            break;
         default:
             break;
         }
@@ -82,7 +86,12 @@ QString LangDetector::detectLang(const QString &text)
         return QStringLiteral("ja");
     if (hangul > 0)
         return QStringLiteral("ko");
-    if (han > 0)
+    // Han flips the result to Chinese only when it is a meaningful share of
+    // the text (>= 5% of the Latin count). OCR of English screenshots (the
+    // chi_sim models especially) routinely misreads a dash or a stray glyph
+    // as a single Han character, and one noise char must not reclassify a
+    // whole English paragraph.
+    if (han > 0 && han * 20 >= latin)
         return QStringLiteral("zh");
 
     switch (detectScript(text)) {

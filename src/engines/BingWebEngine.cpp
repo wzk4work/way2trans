@@ -47,19 +47,14 @@ BingWebEngine::BingWebEngine(QNetworkAccessManager *nam, QObject *parent)
     , m_nam(nam)
 { }
 
-QString BingWebEngine::id() const
+QString BingWebEngine::typeId() const
 {
     return QString::fromLatin1(kEngineId);
 }
 
-QString BingWebEngine::displayName() const
+QString BingWebEngine::typeName() const
 {
     return QStringLiteral("Bing");
-}
-
-QStringList BingWebEngine::configKeys() const
-{
-    return {};
 }
 
 void BingWebEngine::translate(const TranslateRequest &req)
@@ -96,7 +91,7 @@ void BingWebEngine::fetchToken(const TranslateRequest &pending)
 
         if (reply->error() != QNetworkReply::NoError) {
             TranslateResult r;
-            r.engineId = QString::fromLatin1(kEngineId);
+            r.engineId = id();
             r.error = tr("Network error: %1").arg(reply->errorString());
             qCWarning(w2tEngines) << "bing token network error" << reply->errorString();
             emit resultReady(r);
@@ -106,7 +101,7 @@ void BingWebEngine::fetchToken(const TranslateRequest &pending)
         m_token = parseToken(reply->readAll());
         if (!m_token.isValid()) {
             TranslateResult r;
-            r.engineId = QString::fromLatin1(kEngineId);
+            r.engineId = id();
             r.error = tr("Could not obtain Bing token (endpoint may have changed)");
             qCWarning(w2tEngines) << "bing token parse failed";
             emit resultReady(r);
@@ -152,14 +147,16 @@ void BingWebEngine::sendTranslate(const TranslateRequest &req)
             // next attempt refreshes.
             m_token = AuthToken {};
             TranslateResult r;
-            r.engineId = QString::fromLatin1(kEngineId);
+            r.engineId = id();
             r.error = tr("Network error: %1").arg(reply->errorString());
             qCWarning(w2tEngines) << "bing translate network error" << reply->errorString();
             emit resultReady(r);
             return;
         }
 
-        emit resultReady(parseResponse(reply->readAll()));
+        TranslateResult parsedResult = parseResponse(reply->readAll());
+        parsedResult.engineId = id();
+        emit resultReady(parsedResult);
     });
 }
 
@@ -189,8 +186,7 @@ BingWebEngine::AuthToken BingWebEngine::parseToken(const QByteArray &html)
 
 TranslateResult BingWebEngine::parseResponse(const QByteArray &body)
 {
-    TranslateResult result;
-    result.engineId = QString::fromLatin1(kEngineId);
+    TranslateResult result; // engineId is stamped by the caller (static context)
 
     QJsonParseError err {};
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);

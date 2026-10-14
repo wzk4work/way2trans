@@ -18,6 +18,13 @@ add_test(NAME tst_settings COMMAND tst_settings)
 set_tests_properties(tst_settings PROPERTIES
     ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config;QT_QPA_PLATFORM=offscreen")
 
+# --- core: AutostartManager XDG entry sync (hermetic XDG_CONFIG_HOME) -------
+add_executable(tst_autostartmanager core/tst_autostartmanager.cpp)
+target_link_libraries(tst_autostartmanager PRIVATE Qt6::Test way2trans_core)
+add_test(NAME tst_autostartmanager COMMAND tst_autostartmanager)
+set_tests_properties(tst_autostartmanager PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-autostart;QT_QPA_PLATFORM=offscreen")
+
 # --- core: TextCleaner + LangDetector --------------------------------------
 add_executable(tst_textcleaner core/tst_textcleaner.cpp)
 target_link_libraries(tst_textcleaner PRIVATE Qt6::Test way2trans_core)
@@ -28,6 +35,13 @@ add_executable(tst_langdetector core/tst_langdetector.cpp)
 target_link_libraries(tst_langdetector PRIVATE Qt6::Test way2trans_core)
 add_test(NAME tst_langdetector COMMAND tst_langdetector)
 set_tests_properties(tst_langdetector PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# --- core: TranslateService engine set (enabled flags + configured order) ---
+add_executable(tst_translateservice core/tst_translateservice.cpp)
+target_link_libraries(tst_translateservice PRIVATE Qt6::Test way2trans_core way2trans_engines)
+add_test(NAME tst_translateservice COMMAND tst_translateservice)
+set_tests_properties(tst_translateservice PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-ts;QT_QPA_PLATFORM=offscreen")
 
 # --- core: SQLite storage (history + vocabulary), hermetic temp DBs (M4) -----
 add_executable(tst_storage core/tst_storage.cpp)
@@ -94,9 +108,18 @@ add_test(NAME tst_captureoverlay COMMAND tst_captureoverlay)
 set_tests_properties(tst_captureoverlay PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# --- ui: MainWindow tabbed shell smoke test (M4) ----------------------------
+# --- ui: PopupWindow drag-to-resize ------------------------------------------
+add_executable(tst_popupwindow ui/tst_popupwindow.cpp)
+target_link_libraries(tst_popupwindow PRIVATE Qt6::Test way2trans_ui way2trans_core)
+add_test(NAME tst_popupwindow COMMAND tst_popupwindow)
+# Hermetic config: the popup persists its user-dragged size to Settings.
+set_tests_properties(tst_popupwindow PROPERTIES
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-popup;QT_QPA_PLATFORM=offscreen")
+
+# --- ui: MainWindow sidebar shell smoke test (M4) ---------------------------
 add_executable(tst_mainwindow ui/tst_mainwindow.cpp)
 target_link_libraries(tst_mainwindow PRIVATE Qt6::Test way2trans_ui way2trans_core)
 add_test(NAME tst_mainwindow COMMAND tst_mainwindow)
+# Hermetic config too: the embedded SettingsPage reads Settings at construction.
 set_tests_properties(tst_mainwindow PROPERTIES
-    ENVIRONMENT "XDG_DATA_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-data-mw;QT_QPA_PLATFORM=offscreen")
+    ENVIRONMENT "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-config-mw;XDG_DATA_HOME=${CMAKE_CURRENT_BINARY_DIR}/xdg-data-mw;QT_QPA_PLATFORM=offscreen")

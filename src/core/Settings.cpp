@@ -36,9 +36,29 @@ Settings::Settings(QObject *parent)
     qCInfo(w2tCore) << "Settings backed by" << configFilePath();
 }
 
+QVariant Settings::readValue(const QString &key, const QVariant &defaultValue) const
+{
+    if (m_settings->contains(key))
+        return m_settings->value(key);
+
+    // Qt 6.4's INI backend writes the group "general" as a "[%General]"
+    // section but parses that section back as capitalised "General/..." keys
+    // (fixed in later Qt releases). Keys are case-sensitive on Unix, so
+    // without this fallback every [general] setting silently reverts to its
+    // default on the next start. Writes keep using the lowercase spelling;
+    // on affected Qt versions the capitalised alias is what sync() reloads.
+    static const QLatin1String kGeneralPrefix("general/");
+    if (key.startsWith(kGeneralPrefix)) {
+        const QString alias = QStringLiteral("General/") + key.mid(kGeneralPrefix.size());
+        if (m_settings->contains(alias))
+            return m_settings->value(alias);
+    }
+    return defaultValue;
+}
+
 QString Settings::sourceLangRule() const
 {
-    return m_settings->value(kKeySourceLangRule, kDefaultSourceLangRule).toString();
+    return readValue(kKeySourceLangRule, kDefaultSourceLangRule).toString();
 }
 
 void Settings::setSourceLangRule(const QString &value)
@@ -51,7 +71,7 @@ void Settings::setSourceLangRule(const QString &value)
 
 QString Settings::targetLang() const
 {
-    return m_settings->value(kKeyTargetLang, kDefaultTargetLang).toString();
+    return readValue(kKeyTargetLang, kDefaultTargetLang).toString();
 }
 
 void Settings::setTargetLang(const QString &value)
@@ -64,7 +84,7 @@ void Settings::setTargetLang(const QString &value)
 
 bool Settings::autostart() const
 {
-    return m_settings->value(kKeyAutostart, false).toBool();
+    return readValue(kKeyAutostart, false).toBool();
 }
 
 void Settings::setAutostart(bool enabled)
@@ -77,12 +97,25 @@ void Settings::setAutostart(bool enabled)
 
 QVariant Settings::value(const QString &key, const QVariant &defaultValue) const
 {
-    return m_settings->value(key, defaultValue);
+    return readValue(key, defaultValue);
 }
 
 void Settings::setValue(const QString &key, const QVariant &value)
 {
     m_settings->setValue(key, value);
+}
+
+QStringList Settings::childGroups(const QString &group) const
+{
+    m_settings->beginGroup(group);
+    const QStringList groups = m_settings->childGroups();
+    m_settings->endGroup();
+    return groups;
+}
+
+void Settings::remove(const QString &keyOrGroup)
+{
+    m_settings->remove(keyOrGroup);
 }
 
 void Settings::sync()

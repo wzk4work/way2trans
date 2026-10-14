@@ -10,12 +10,20 @@ add_library(way2trans_ui STATIC
     PopupWindow.h
     CaptureOverlay.cpp
     CaptureOverlay.h
+    HistoryItemDelegate.cpp
+    HistoryItemDelegate.h
     HistoryModel.cpp
     HistoryModel.h
+    LangOptions.cpp
+    LangOptions.h
+    VocabItemDelegate.cpp
+    VocabItemDelegate.h
     VocabModel.cpp
     VocabModel.h
-    SettingsDialog.cpp
-    SettingsDialog.h
+    ServicesPage.cpp
+    ServicesPage.h
+    SettingsSections.cpp
+    SettingsSections.h
 )
 
 target_include_directories(way2trans_ui

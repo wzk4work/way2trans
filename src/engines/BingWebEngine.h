@@ -22,9 +22,8 @@ class BingWebEngine : public TranslateEngine {
 public:
     explicit BingWebEngine(QNetworkAccessManager *nam, QObject *parent = nullptr);
 
-    QString id() const override;
-    QString displayName() const override;
-    QStringList configKeys() const override;
+    QString typeId() const override;
+    QString typeName() const override;
 
     void translate(const TranslateRequest &req) override;
     void cancel() override;

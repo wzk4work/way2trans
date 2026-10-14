@@ -7,23 +7,30 @@
 
 class LibraryService;
 class TranslateService;
+class HistoryItemDelegate;
 class HistoryModel;
 class VocabModel;
 class EngineResultCard;
+class ServicesPage;
 class QPlainTextEdit;
 class QLineEdit;
 class QListView;
+class QListWidget;
+class QStackedWidget;
 class QVBoxLayout;
 class QComboBox;
 class QLabel;
 class QTextBrowser;
 class QModelIndex;
 
-// Main input-translation window with three tabs (DESIGN.md §7):
-// Translate / History / Vocabulary. History and Vocabulary consume
-// QAbstractListModel-derived models over the storage layer; the Translate tab
-// reuses the shared TranslateService and renders one EngineResultCard per
-// engine. Services are injected so the window never owns platform/engine state.
+// Main window (DESIGN.md §7): a single flat navigation sidebar on the left —
+// Translate / History / Vocabulary, then a "Settings" group with General /
+// Hotkeys / Services / OCR / Platform — over a stacked page area, following
+// the layout of mainstream translators (Pot, STranslate). History and
+// Vocabulary consume QAbstractListModel-derived models over the storage
+// layer; the Translate page reuses the shared TranslateService and renders
+// one EngineResultCard per engine. Services are injected so the window never
+// owns platform/engine state.
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -31,27 +38,35 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
 
     // Inject the shared services. Safe to pass nullptr (the window then shows
-    // empty tabs); call before showing for full functionality.
+    // empty pages); call before showing for full functionality.
     void setServices(TranslateService *translate, LibraryService *library);
 
-    // Pre-fill the translate tab input and run it (history re-translation).
+    // Pre-fill the translate page input and run it (history re-translation).
     void translateText(const QString &text);
 
+    // Switch to the first settings page (tray "Settings…" and similar entry
+    // points).
+    void showSettings();
+
+    // The embedded services page; the app injects the engine connectivity
+    // tester and listens for engine config changes through it.
+    ServicesPage *servicesPage() const { return m_servicesPage; }
+
 signals:
-    // A translation was requested from this window (input tab or a history
+    // A translation was requested from this window (translate page or a history
     // re-translation). The app tags it as the "input" trigger and dispatches it,
     // so history records the right source (DESIGN.md §8.2).
     void inputTranslationRequested(const QString &text);
 
-    // The user asked to open Settings from the window. The app opens the shared
-    // SettingsDialog (same path as the tray), so ui/ never owns engine/platform
-    // state or the connectivity-test wiring.
-    void settingsRequested();
+protected:
+    // Enter in the translate input runs the translation; Shift+Enter inserts a
+    // newline (Bob/Pot behaviour, DESIGN.md §3.3).
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    void buildTranslateTab();
-    void buildHistoryTab();
-    void buildVocabTab();
+    QWidget *buildTranslatePage();
+    QWidget *buildHistoryPage();
+    QWidget *buildVocabPage();
 
     void runTranslation();
     void onRequestStarted(const TranslateRequest &request, const QStringList &engineIds);
@@ -68,23 +83,31 @@ private:
     TranslateService *m_translate = nullptr;
     LibraryService *m_library = nullptr;
 
-    // Translate tab.
+    // Shell: sidebar navigation + stacked pages. Nav items carry their page
+    // index in Qt::UserRole (the "Settings" group header is not selectable).
+    QListWidget *m_nav = nullptr;
+    QStackedWidget *m_pages = nullptr;
+    ServicesPage *m_servicesPage = nullptr;
+    int m_firstSettingsRow = 0; // nav row of the first settings entry
+
+    // Translate page.
     QPlainTextEdit *m_input = nullptr;
     QVBoxLayout *m_cardsLayout = nullptr;
     QHash<QString, EngineResultCard *> m_cards;
     // The TranslateService is shared with the selection/screenshot flows. These
-    // flags let the tab render only translations it started itself, ignoring
+    // flags let the page render only translations it started itself, ignoring
     // results from popup-driven requests. Set just before we dispatch; latched
     // in onRequestStarted (which fires synchronously from translate()).
     bool m_ownRequestPending = false;
     bool m_showingOwnRequest = false;
 
-    // History tab.
+    // History page.
     HistoryModel *m_historyModel = nullptr;
     QLineEdit *m_historySearch = nullptr;
     QListView *m_historyView = nullptr;
+    HistoryItemDelegate *m_historyDelegate = nullptr; // selected row expands in place
 
-    // Vocabulary tab.
+    // Vocabulary page.
     VocabModel *m_vocabModel = nullptr;
     QListView *m_vocabView = nullptr;
     QComboBox *m_vocabSort = nullptr;

@@ -14,6 +14,7 @@ private slots:
     void detectsJapaneseOverKanji();
     void detectsKorean();
     void mixedCjkAndLatinIsChinese();
+    void hanNoiseInLatinTextIsEnglish();
     void ambiguousIsAuto();
 };
 
@@ -47,6 +48,16 @@ void TestLangDetector::mixedCjkAndLatinIsChinese()
 {
     // A few Latin chars mixed into Chinese text is still Chinese for our rule.
     QCOMPARE(LangDetector::detectLang(QStringLiteral("使用 Qt 开发")), QStringLiteral("zh"));
+}
+
+void TestLangDetector::hanNoiseInLatinTextIsEnglish()
+{
+    // OCR of an English screenshot often misreads a dash or stray glyph as a
+    // single Han character; that noise must not reclassify the paragraph.
+    QString text
+        = QStringLiteral("The project began as a coding harness built around developer workflows. ").repeated(3);
+    text += QChar(0x4E00); // "一", a plausible OCR misread of a dash
+    QCOMPARE(LangDetector::detectLang(text), QStringLiteral("en"));
 }
 
 void TestLangDetector::ambiguousIsAuto()

@@ -2,9 +2,15 @@
 
 #include "CardStyle.h"
 #include "EngineResultCard.h"
+#include "HistoryItemDelegate.h"
 #include "HistoryModel.h"
+#include "LangOptions.h"
 #include "LibraryService.h"
+#include "ServicesPage.h"
+#include "Settings.h"
+#include "SettingsSections.h"
 #include "TranslateService.h"
+#include "VocabItemDelegate.h"
 #include "VocabModel.h"
 
 #include <QApplication>
@@ -12,35 +18,28 @@
 #include <QComboBox>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
+#include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSaveFile>
 #include <QScrollArea>
-#include <QTabWidget>
+#include <QShortcut>
+#include <QStackedWidget>
+#include <QStyle>
 #include <QTextBrowser>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 namespace {
-QString engineDisplayName(const QString &id)
-{
-    if (id == QLatin1String("google"))
-        return QStringLiteral("Google");
-    if (id == QLatin1String("bing"))
-        return QStringLiteral("Bing");
-    if (id == QLatin1String("deepl"))
-        return QStringLiteral("DeepL");
-    if (id == QLatin1String("llm"))
-        return QStringLiteral("LLM");
-    return id;
-}
-
 QString statusLabel(int status)
 {
     switch (status) {
@@ -58,143 +57,343 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(tr("way2trans"));
-    resize(720, 560);
+    resize(820, 560);
 
-    auto *tabs = new QTabWidget(this);
-    setCentralWidget(tabs);
+    // Shell: one flat sidebar on the left, stacked pages on the right — the
+    // layout mainstream translators use. The settings sections sit directly in
+    // this sidebar under a group header, so there is no second-level nav.
+    auto *central = new QWidget(this);
+    auto *rootLayout = new QHBoxLayout(central);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
+    setCentralWidget(central);
 
-    auto *translateTab = new QWidget(tabs);
-    auto *historyTab = new QWidget(tabs);
-    auto *vocabTab = new QWidget(tabs);
-    tabs->addTab(translateTab, tr("Translate"));
-    tabs->addTab(historyTab, tr("History"));
-    tabs->addTab(vocabTab, tr("Vocabulary"));
+    m_nav = new QListWidget(central);
+    m_nav->setObjectName(QStringLiteral("mainNav"));
+    m_nav->setFixedWidth(138);
+    m_nav->setFrameShape(QFrame::NoFrame);
+    m_nav->setIconSize(QSize(16, 16));
+    rootLayout->addWidget(m_nav);
 
-    // Settings entry point in the tab-bar corner. It opens the shared modal
-    // dialog (5 pages) rather than being a nested tab, so we don't stack a
-    // second tab bar inside a tab.
-    auto *settingsButton = new QToolButton(tabs);
-    settingsButton->setText(QStringLiteral("⚙ ") + tr("Settings…"));
-    settingsButton->setAutoRaise(true);
-    settingsButton->setCursor(Qt::PointingHandCursor);
-    settingsButton->setToolTip(tr("Open settings"));
-    connect(settingsButton, &QToolButton::clicked, this, &MainWindow::settingsRequested);
-    tabs->setCornerWidget(settingsButton, Qt::TopRightCorner);
+    m_pages = new QStackedWidget(central);
+    m_pages->setObjectName(QStringLiteral("mainPages"));
+    rootLayout->addWidget(m_pages, 1);
 
-    // Lay out into the placeholder widgets created above.
-    m_input = nullptr;
-    {
-        // Translate tab.
-        auto *layout = new QVBoxLayout(translateTab);
-        m_input = new QPlainTextEdit(translateTab);
-        m_input->setPlaceholderText(tr("Enter text to translate…"));
-        m_input->setMaximumHeight(120);
-        layout->addWidget(m_input);
+    // Tall pages (services list, hotkey guidance) scroll instead of forcing a
+    // large window minimum.
+    auto scrolled = [this](QWidget *page) -> QWidget * {
+        auto *area = new QScrollArea(this);
+        area->setWidgetResizable(true);
+        area->setFrameShape(QFrame::NoFrame);
+        area->setWidget(page);
+        return area;
+    };
+    // Nav icons come from the system icon theme so they follow the user's
+    // desktop (Breeze, Adwaita, Papirus, …). Name coverage differs between
+    // themes, so each entry tries a list of freedesktop names; the QStyle
+    // standard icon guarantees something renders even without a theme.
+    auto navIcon = [this](std::initializer_list<const char *> names, QStyle::StandardPixmap fallback) {
+        for (const char *name : names) {
+            const QIcon icon = QIcon::fromTheme(QLatin1String(name));
+            if (!icon.isNull())
+                return icon;
+        }
+        return style()->standardIcon(fallback);
+    };
+    auto addPage = [this](const QIcon &icon, const QString &label, QWidget *page) {
+        auto *item = new QListWidgetItem(icon, label, m_nav);
+        item->setData(Qt::UserRole, m_pages->count());
+        m_pages->addWidget(page);
+    };
 
-        auto *row = new QHBoxLayout;
-        auto *translateButton = new QPushButton(tr("Translate"), translateTab);
-        connect(translateButton, &QPushButton::clicked, this, &MainWindow::runTranslation);
-        row->addStretch();
-        row->addWidget(translateButton);
-        layout->addLayout(row);
+    m_servicesPage = new ServicesPage(central);
 
-        auto *scroll = new QScrollArea(translateTab);
-        scroll->setWidgetResizable(true);
-        auto *cardsContainer = new QWidget;
-        m_cardsLayout = new QVBoxLayout(cardsContainer);
-        m_cardsLayout->addStretch();
-        scroll->setWidget(cardsContainer);
-        layout->addWidget(scroll, 1);
-    }
+    addPage(navIcon({"translate", "translator", "preferences-desktop-locale"}, QStyle::SP_FileDialogContentsView),
+        tr("Translate"), buildTranslatePage());
+    addPage(
+        navIcon({"view-history", "document-open-recent"}, QStyle::SP_BrowserReload), tr("History"), buildHistoryPage());
+    addPage(navIcon({"accessories-dictionary", "address-book-new"}, QStyle::SP_FileDialogDetailedView),
+        tr("Vocabulary"), buildVocabPage());
 
-    {
-        // History tab.
-        auto *layout = new QVBoxLayout(historyTab);
-        m_historySearch = new QLineEdit(historyTab);
-        m_historySearch->setPlaceholderText(tr("Search history…"));
-        m_historySearch->setClearButtonEnabled(true);
-        layout->addWidget(m_historySearch);
+    // Non-selectable group header separating the settings sections.
+    auto *header = new QListWidgetItem(tr("Settings"), m_nav);
+    header->setFlags(Qt::NoItemFlags);
+    QFont headerFont = font();
+    headerFont.setPointSizeF(headerFont.pointSizeF() * 0.85);
+    header->setFont(headerFont);
 
-        m_historyView = new QListView(historyTab);
-        m_historyView->setContextMenuPolicy(Qt::CustomContextMenu);
-        layout->addWidget(m_historyView, 1);
-    }
+    m_firstSettingsRow = m_nav->count();
+    addPage(navIcon({"preferences-system", "configure"}, QStyle::SP_FileDialogListView), tr("General"),
+        scrolled(w2t::ui::buildGeneralPage(this)));
+    addPage(navIcon({"preferences-desktop-keyboard", "input-keyboard"}, QStyle::SP_DesktopIcon), tr("Hotkeys"),
+        scrolled(w2t::ui::buildHotkeysPage(this)));
+    addPage(navIcon({"network-server", "applications-internet", "globe"}, QStyle::SP_DriveNetIcon), tr("Services"),
+        scrolled(m_servicesPage));
+    addPage(navIcon({"document-scan", "scanner", "camera-photo"}, QStyle::SP_FileDialogContentsView), tr("OCR"),
+        scrolled(w2t::ui::buildOcrPage(this)));
+    addPage(navIcon({"computer", "video-display"}, QStyle::SP_ComputerIcon), tr("Platform"),
+        scrolled(w2t::ui::buildPlatformPage(this)));
 
-    {
-        // Vocabulary tab.
-        auto *layout = new QVBoxLayout(vocabTab);
-        auto *controls = new QHBoxLayout;
-        m_vocabSort = new QComboBox(vocabTab);
-        m_vocabSort->addItem(tr("Most looked up"));
-        m_vocabSort->addItem(tr("Recently added"));
-        m_vocabStatusFilter = new QComboBox(vocabTab);
-        m_vocabStatusFilter->addItem(tr("All statuses"), -1);
-        m_vocabStatusFilter->addItem(tr("New"), 0);
-        m_vocabStatusFilter->addItem(tr("Familiar"), 1);
-        m_vocabStatusFilter->addItem(tr("Mastered"), 2);
-        controls->addWidget(new QLabel(tr("Sort:"), vocabTab));
-        controls->addWidget(m_vocabSort);
-        controls->addWidget(new QLabel(tr("Filter:"), vocabTab));
-        controls->addWidget(m_vocabStatusFilter);
-        controls->addStretch();
-
-        auto *ankiButton = new QPushButton(tr("Export Anki…"), vocabTab);
-        auto *csvButton = new QPushButton(tr("Export CSV…"), vocabTab);
-        auto *jsonButton = new QPushButton(tr("Export JSON…"), vocabTab);
-        connect(ankiButton, &QPushButton::clicked, this, [this]() { exportVocab(QStringLiteral("anki")); });
-        connect(csvButton, &QPushButton::clicked, this, [this]() { exportVocab(QStringLiteral("csv")); });
-        connect(jsonButton, &QPushButton::clicked, this, [this]() { exportVocab(QStringLiteral("json")); });
-        controls->addWidget(ankiButton);
-        controls->addWidget(csvButton);
-        controls->addWidget(jsonButton);
-        layout->addLayout(controls);
-
-        auto *split = new QHBoxLayout;
-        m_vocabView = new QListView(vocabTab);
-        split->addWidget(m_vocabView, 1);
-        m_vocabDetail = new QTextBrowser(vocabTab);
-        split->addWidget(m_vocabDetail, 1);
-        layout->addLayout(split, 1);
-
-        auto *statusButton = new QPushButton(tr("Cycle status (New → Familiar → Mastered)"), vocabTab);
-        connect(statusButton, &QPushButton::clicked, this, &MainWindow::cycleVocabStatus);
-        layout->addWidget(statusButton);
-    }
+    connect(m_nav, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *current, QListWidgetItem *) {
+        if (current)
+            m_pages->setCurrentIndex(current->data(Qt::UserRole).toInt());
+    });
+    m_nav->setCurrentRow(0);
 
     // Rounded, popup-consistent styling for inputs, lists and buttons; the
     // engine result cards reuse the exact popup card style (CardStyle.h).
     setStyleSheet(
-        QStringLiteral("QPlainTextEdit, QLineEdit, QTextBrowser, QListView {"
-                       "  background: palette(base);"
-                       "  border: 1px solid palette(midlight);"
-                       "  border-radius: 8px;"
-                       "  padding: 6px 8px;"
-                       "}"
-                       "QComboBox {"
-                       "  background: palette(base);"
-                       "  border: 1px solid palette(midlight);"
-                       "  border-radius: 8px;"
-                       "  padding: 4px 8px;"
-                       "}"
-                       "QListView::item { padding: 5px; border-radius: 6px; }"
-                       "QListView::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
-                       "QScrollArea { border: none; background: transparent; }"
-                       "QScrollArea > QWidget > QWidget { background: transparent; }"
-                       // No rounded pane border: it sits flush to the square window
-                       // corners and the mismatch shows. The inner widgets carry the
-                       // rounding instead.
-                       "QTabWidget::pane { border: none; }"
-                       "QPushButton {"
-                       "  background: palette(button);"
-                       "  border: 1px solid palette(mid);"
-                       "  border-radius: 8px;"
-                       "  padding: 6px 14px;"
-                       "}"
-                       "QPushButton:hover { background: palette(midlight); }"
-                       "QPushButton:pressed { background: palette(mid); }"
-                       "QToolButton { border: none; border-radius: 6px; padding: 3px 8px; }"
-                       "QToolButton:hover { background: palette(midlight); }")
+        QStringLiteral(
+            "QPlainTextEdit, QLineEdit, QTextBrowser, #contentList {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 8px;"
+            "  padding: 6px 8px;"
+            "}"
+            "QComboBox {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 8px;"
+            "  padding: 4px 8px;"
+            "}"
+            // Styling QComboBox with a box model makes Qt render its
+            // popup like a menu; without an explicit ::item:selected
+            // rule the current row paints highlighted-text on the
+            // base background — i.e. invisible white-on-white.
+            "QComboBox QAbstractItemView {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "}"
+            "QComboBox::item:selected {"
+            "  background: palette(highlight);"
+            "  color: palette(highlighted-text);"
+            "}"
+            // Card styling for the history/vocab lists only; a bare
+            // QListView selector would leak into combo popups (their
+            // list is a QListView too) and wreck item geometry.
+            "#contentList::item { padding: 5px; border-radius: 6px; }"
+            "#contentList::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+            "QScrollArea { border: none; background: transparent; }"
+            "QScrollArea > QWidget > QWidget { background: transparent; }"
+            "QPushButton {"
+            "  background: palette(button);"
+            "  border: 1px solid palette(mid);"
+            "  border-radius: 8px;"
+            "  padding: 6px 14px;"
+            "}"
+            "QPushButton:hover { background: palette(midlight); }"
+            "QPushButton:pressed { background: palette(mid); }"
+            "QToolButton { border: none; border-radius: 6px; padding: 3px 8px; }"
+            "QToolButton:hover { background: palette(midlight); }"
+            // Sidebar navigation: flat list on the window background
+            // with a hairline splitting it from the page area.
+            "#mainNav {"
+            "  background: transparent;"
+            "  border: none;"
+            "  border-right: 1px solid palette(midlight);"
+            "  padding: 6px 2px;"
+            "  font-size: 13px;"
+            "}"
+            "#mainNav::item { padding: 9px 12px; border-radius: 8px; margin: 1px 4px; }"
+            "#mainNav::item:selected { background: palette(highlight); color: palette(highlighted-text); }"
+            // The settings group header: quiet label, extra gap above.
+            "#mainNav::item:disabled { color: palette(mid); margin-top: 10px; padding: 2px 12px; }"
+            // History/vocabulary list cards: the frame carries the rounded
+            // border, the list inside is flat (same pattern as #inputCard).
+            "#listCard {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 8px;"
+            "}"
+            "#historyList, #vocabList { background: transparent; border: none; }"
+            // Input card: the rounded surface is the card, so the
+            // text edit inside stays flat and transparent.
+            "#inputCard {"
+            "  background: palette(base);"
+            "  border: 1px solid palette(midlight);"
+            "  border-radius: 10px;"
+            "}"
+            "#translateInput { background: transparent; border: none; padding: 0; }"
+            "#langHint { color: palette(mid); font-size: 11px; }"
+            "QPushButton#primaryButton {"
+            "  background: palette(highlight);"
+            "  color: palette(highlighted-text);"
+            "  border: none;"
+            "  border-radius: 8px;"
+            "  padding: 6px 18px;"
+            "  font-weight: 600;"
+            "}")
         + w2t::ui::cardStyleSheet());
+}
+
+QWidget *MainWindow::buildTranslatePage()
+{
+    auto *page = new QWidget(this);
+    auto *layout = new QVBoxLayout(page);
+
+    // Input card: text on top, a toolbar row below with quick actions on the
+    // left and the primary translate button on the right (Pot/Easydict layout).
+    auto *inputCard = new QFrame(page);
+    inputCard->setObjectName(QStringLiteral("inputCard"));
+    auto *cardLayout = new QVBoxLayout(inputCard);
+    cardLayout->setContentsMargins(10, 8, 10, 8);
+    cardLayout->setSpacing(6);
+
+    m_input = new QPlainTextEdit(inputCard);
+    m_input->setObjectName(QStringLiteral("translateInput"));
+    m_input->setPlaceholderText(tr("Enter text to translate…"));
+    m_input->setMaximumHeight(110);
+    m_input->setTabChangesFocus(true);
+    m_input->installEventFilter(this); // Enter translates, Shift+Enter newline
+    cardLayout->addWidget(m_input);
+
+    auto *toolbar = new QHBoxLayout;
+    auto addTool = [this, inputCard, toolbar](const QString &text, const QString &tip) {
+        auto *button = new QToolButton(inputCard);
+        button->setText(text);
+        button->setToolTip(tip);
+        button->setCursor(Qt::PointingHandCursor);
+        button->setAutoRaise(true);
+        toolbar->addWidget(button);
+        return button;
+    };
+    auto *copyButton = addTool(tr("Copy"), tr("Copy source text"));
+    connect(copyButton, &QToolButton::clicked, this,
+        [this]() { QApplication::clipboard()->setText(m_input->toPlainText()); });
+    auto *pasteButton = addTool(tr("Paste"), tr("Replace with clipboard text"));
+    connect(pasteButton, &QToolButton::clicked, this,
+        [this]() { m_input->setPlainText(QApplication::clipboard()->text()); });
+    auto *clearButton = addTool(tr("Clear"), tr("Clear the input"));
+    connect(clearButton, &QToolButton::clicked, this, [this]() { m_input->clear(); });
+    toolbar->addStretch();
+
+    // Quick target-language switch, bound to the global rule (same setting as
+    // Settings → General); takes effect from the next translation.
+    auto *langCombo = new QComboBox(inputCard);
+    w2t::ui::populateTargetRuleCombo(langCombo);
+    w2t::ui::selectTargetRule(
+        langCombo, Settings::instance().value(QStringLiteral("general/targetLangRule")).toString());
+    langCombo->setToolTip(tr("Target language — applies from the next translation"));
+    langCombo->setCursor(Qt::PointingHandCursor);
+    connect(langCombo, &QComboBox::activated, this, [langCombo]() {
+        Settings::instance().setValue(QStringLiteral("general/targetLangRule"), langCombo->currentData());
+    });
+    toolbar->addWidget(langCombo);
+
+    auto *translateButton = new QPushButton(tr("Translate"), inputCard);
+    translateButton->setObjectName(QStringLiteral("primaryButton"));
+    translateButton->setCursor(Qt::PointingHandCursor);
+    connect(translateButton, &QPushButton::clicked, this, &MainWindow::runTranslation);
+    toolbar->addWidget(translateButton);
+    cardLayout->addLayout(toolbar);
+    layout->addWidget(inputCard);
+
+    // Ctrl+Enter translates while typing in the input.
+    auto *shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return), m_input);
+    shortcut->setContext(Qt::WidgetShortcut);
+    connect(shortcut, &QShortcut::activated, this, &MainWindow::runTranslation);
+
+    auto *scroll = new QScrollArea(page);
+    scroll->setWidgetResizable(true);
+    auto *cardsContainer = new QWidget;
+    m_cardsLayout = new QVBoxLayout(cardsContainer);
+    m_cardsLayout->addStretch();
+    scroll->setWidget(cardsContainer);
+    layout->addWidget(scroll, 1);
+    return page;
+}
+
+QWidget *MainWindow::buildHistoryPage()
+{
+    auto *page = new QWidget(this);
+    auto *layout = new QVBoxLayout(page);
+    m_historySearch = new QLineEdit(page);
+    m_historySearch->setPlaceholderText(tr("Search history…"));
+    m_historySearch->setClearButtonEnabled(true);
+    layout->addWidget(m_historySearch);
+
+    // Card pattern (AGENTS.md): the frame owns the rounded border, the list
+    // inside stays flat and unpadded so scrolling can't leave paint residue.
+    auto *card = new QFrame(page);
+    card->setObjectName(QStringLiteral("listCard"));
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(4, 4, 4, 4);
+
+    m_historyView = new QListView(card);
+    m_historyView->setObjectName(QStringLiteral("historyList"));
+    m_historyView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_historyDelegate = new HistoryItemDelegate(m_historyView, m_historyView);
+    m_historyView->setItemDelegate(m_historyDelegate);
+    // The delegate sizes rows to the viewport; Adjust re-lays them out on
+    // resize, so the horizontal scrollbar can go away entirely.
+    m_historyView->setResizeMode(QListView::Adjust);
+    m_historyView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_historyView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_historyView->setMouseTracking(true); // hover state for the delegate
+    m_historyView->setFrameShape(QFrame::NoFrame);
+    cardLayout->addWidget(m_historyView);
+    layout->addWidget(card, 1);
+    return page;
+}
+
+QWidget *MainWindow::buildVocabPage()
+{
+    auto *page = new QWidget(this);
+    auto *layout = new QVBoxLayout(page);
+    auto *controls = new QHBoxLayout;
+    m_vocabSort = new QComboBox(page);
+    m_vocabSort->addItem(tr("Most looked up"));
+    m_vocabSort->addItem(tr("Recently added"));
+    m_vocabStatusFilter = new QComboBox(page);
+    m_vocabStatusFilter->addItem(tr("All statuses"), -1);
+    m_vocabStatusFilter->addItem(tr("New"), 0);
+    m_vocabStatusFilter->addItem(tr("Familiar"), 1);
+    m_vocabStatusFilter->addItem(tr("Mastered"), 2);
+    controls->addWidget(new QLabel(tr("Sort:"), page));
+    controls->addWidget(m_vocabSort);
+    controls->addWidget(new QLabel(tr("Filter:"), page));
+    controls->addWidget(m_vocabStatusFilter);
+    controls->addStretch();
+
+    auto *ankiButton = new QPushButton(tr("Export Anki…"), page);
+    auto *csvButton = new QPushButton(tr("Export CSV…"), page);
+    auto *jsonButton = new QPushButton(tr("Export JSON…"), page);
+    connect(ankiButton, &QPushButton::clicked, this, [this]() { exportVocab(QStringLiteral("anki")); });
+    connect(csvButton, &QPushButton::clicked, this, [this]() { exportVocab(QStringLiteral("csv")); });
+    connect(jsonButton, &QPushButton::clicked, this, [this]() { exportVocab(QStringLiteral("json")); });
+    controls->addWidget(ankiButton);
+    controls->addWidget(csvButton);
+    controls->addWidget(jsonButton);
+    layout->addLayout(controls);
+
+    auto *split = new QHBoxLayout;
+    // Same card pattern as the history page: the frame owns the rounded
+    // border, the list inside stays flat and unpadded.
+    auto *card = new QFrame(page);
+    card->setObjectName(QStringLiteral("listCard"));
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(4, 4, 4, 4);
+
+    m_vocabView = new QListView(card);
+    m_vocabView->setObjectName(QStringLiteral("vocabList"));
+    m_vocabView->setItemDelegate(new VocabItemDelegate(m_vocabView, m_vocabView));
+    // The delegate sizes rows to the viewport; Adjust re-lays them out on
+    // resize, so the horizontal scrollbar can go away entirely.
+    m_vocabView->setResizeMode(QListView::Adjust);
+    m_vocabView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_vocabView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_vocabView->setMouseTracking(true); // hover state for the delegate
+    m_vocabView->setFrameShape(QFrame::NoFrame);
+    cardLayout->addWidget(m_vocabView);
+    split->addWidget(card, 1);
+    m_vocabDetail = new QTextBrowser(page);
+    split->addWidget(m_vocabDetail, 1);
+    layout->addLayout(split, 1);
+
+    auto *statusButton = new QPushButton(tr("Cycle status (New → Familiar → Mastered)"), page);
+    connect(statusButton, &QPushButton::clicked, this, &MainWindow::cycleVocabStatus);
+    layout->addWidget(statusButton);
+    return page;
 }
 
 void MainWindow::setServices(TranslateService *translate, LibraryService *library)
@@ -213,7 +412,11 @@ void MainWindow::setServices(TranslateService *translate, LibraryService *librar
     m_historyView->setModel(m_historyModel);
     connect(
         m_historySearch, &QLineEdit::textChanged, this, [this](const QString &text) { m_historyModel->search(text); });
-    connect(m_historyView, &QListView::activated, this, &MainWindow::onHistoryActivated);
+    // Selecting a row expands it in place to the full stored source and
+    // translation — viewing history never re-runs a request. Re-translation
+    // is only the explicit context-menu action.
+    connect(m_historyView->selectionModel(), &QItemSelectionModel::currentChanged, this,
+        [this](const QModelIndex &current, const QModelIndex &) { m_historyDelegate->setExpandedIndex(current); });
     connect(m_historyView, &QListView::customContextMenuRequested, this, &MainWindow::showHistoryContextMenu);
 
     m_vocabModel = new VocabModel(m_library, this);
@@ -226,7 +429,7 @@ void MainWindow::setServices(TranslateService *translate, LibraryService *librar
         [this]() { m_vocabModel->setStatusFilter(m_vocabStatusFilter->currentData().toInt()); });
 
     if (m_library) {
-        // Keep the tabs fresh when the library changes underneath us.
+        // Keep the pages fresh when the library changes underneath us.
         connect(m_library, &LibraryService::historyChanged, m_historyModel, &HistoryModel::reload);
         connect(m_library, &LibraryService::vocabularyChanged, m_vocabModel, &VocabModel::reload);
     }
@@ -237,6 +440,26 @@ void MainWindow::translateText(const QString &text)
     if (m_input)
         m_input->setPlainText(text);
     runTranslation();
+}
+
+void MainWindow::showSettings()
+{
+    m_nav->setCurrentRow(m_firstSettingsRow);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    // Enter runs the translation, Shift+Enter inserts a newline (Bob/Pot
+    // behaviour); Ctrl+Enter keeps working through its existing QShortcut.
+    if (watched == m_input && event->type() == QEvent::KeyPress) {
+        auto *ke = static_cast<QKeyEvent *>(event);
+        const bool isEnter = ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter;
+        if (isEnter && ke->modifiers() == Qt::NoModifier) {
+            runTranslation();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void MainWindow::runTranslation()
@@ -257,7 +480,7 @@ void MainWindow::onRequestStarted(const TranslateRequest &request, const QString
 {
     Q_UNUSED(request);
     // The service is shared: only render requests this window started, so a
-    // selection/screenshot translation doesn't hijack the translate tab.
+    // selection/screenshot translation doesn't hijack the translate page.
     m_showingOwnRequest = m_ownRequestPending;
     m_ownRequestPending = false;
     if (!m_showingOwnRequest)
@@ -269,7 +492,8 @@ void MainWindow::onRequestStarted(const TranslateRequest &request, const QString
     m_cards.clear();
 
     for (const QString &id : engineIds) {
-        auto *card = new EngineResultCard(id, engineDisplayName(id), this);
+        const QString name = m_translate ? m_translate->engineDisplayName(id) : id;
+        auto *card = new EngineResultCard(id, name, this);
         if (m_translate)
             connect(card, &EngineResultCard::retryRequested, m_translate, &TranslateService::retry);
         // Insert before the trailing stretch.
@@ -300,10 +524,9 @@ void MainWindow::onHistoryActivated(const QModelIndex &index)
 {
     if (!index.isValid())
         return;
-    // Single click / activation refills the translate tab and re-runs it.
+    // Context-menu "Translate again": refill the translate page and re-run.
     const HistoryRecord r = m_historyModel->recordAt(index.row());
-    if (auto *tabs = qobject_cast<QTabWidget *>(centralWidget()))
-        tabs->setCurrentIndex(0);
+    m_nav->setCurrentRow(0);
     translateText(r.sourceText);
 }
 
@@ -315,6 +538,7 @@ void MainWindow::showHistoryContextMenu(const QPoint &pos)
     const HistoryRecord r = m_historyModel->recordAt(index.row());
 
     QMenu menu(this);
+    QAction *retranslate = menu.addAction(tr("Translate again"));
     QAction *copySrc = menu.addAction(tr("Copy source"));
     QAction *copyRes = menu.addAction(tr("Copy translation"));
     QAction *favorite = menu.addAction(r.favorite ? tr("Unfavorite") : tr("Favorite"));
@@ -322,7 +546,13 @@ void MainWindow::showHistoryContextMenu(const QPoint &pos)
     QAction *remove = menu.addAction(tr("Delete"));
 
     QAction *chosen = menu.exec(m_historyView->viewport()->mapToGlobal(pos));
-    if (!chosen || !m_library || !m_library->isReady())
+    if (!chosen)
+        return;
+    if (chosen == retranslate) {
+        onHistoryActivated(index);
+        return;
+    }
+    if (!m_library || !m_library->isReady())
         return;
 
     if (chosen == copySrc) {
