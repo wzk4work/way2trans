@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-way2trans is a Linux desktop selection & screenshot translation tool, inspired by macOS [Bob](https://bobtranslate.com/). Built with C++20 + Qt 6: native UI, no WebView, low memory footprint.
+way2trans is a Linux desktop selection & screenshot translation tool built with C++20 + Qt 6: native UI, no WebView, low memory footprint.
 
 ## Features
 
@@ -24,7 +24,7 @@ way2trans is a Linux desktop selection & screenshot translation tool, inspired b
 | Wayland | wlroots (Sway / Hyprland / River …) | ✅ Full* |
 | Wayland | GNOME | ❌ Not supported |
 
-\* On wlroots, global hotkeys rely on binding commands in the compositor config. GNOME Wayland lacks the data-control and layer-shell protocols and is explicitly not supported; GNOME users should use an X11 session.
+\* On wlroots, global hotkeys rely on binding commands in the compositor config. GNOME Wayland lacks the data-control and layer-shell protocols and is explicitly not supported.
 
 ## Build
 

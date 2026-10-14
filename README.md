@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-way2trans 是一个 Linux 桌面划词 / 截图翻译工具，对标 macOS 的 [Bob](https://bobtranslate.com/)，使用 C++20 + Qt 6 开发，原生 UI、无 WebView、低内存占用。
+way2trans 是一个 Linux 桌面划词 / 截图翻译工具，使用 C++20 + Qt 6 开发，原生 UI、无 WebView、低内存占用。
 
 ## 功能
 
@@ -24,7 +24,7 @@ way2trans 是一个 Linux 桌面划词 / 截图翻译工具，对标 macOS 的 [
 | Wayland | wlroots 系（Sway / Hyprland / River 等） | ✅ 完整* |
 | Wayland | GNOME | ❌ 不支持 |
 
-\* wlroots 系全局快捷键依赖合成器配置绑定命令。GNOME Wayland 缺少 data-control 与 layer-shell 协议，明确不适配；GNOME 用户请使用 X11 会话。
+\* wlroots 系全局快捷键依赖合成器配置绑定命令。GNOME Wayland 缺少 data-control 与 layer-shell 协议，明确不适配。
 
 ## 构建
 
